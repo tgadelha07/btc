@@ -1,0 +1,1043 @@
+<title>BTC Dynamic DCA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --ground:#f6f7f9; --panel:#ffffff; --panel-2:#fbfcfd;
+  --ink:#101419; --ink-2:#4b5462; --ink-3:#7d8794;
+  --rule:#e3e7ec; --rule-2:#eef1f4;
+  --accent:#2a78d6; --accent-soft:#e8f0fb;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+  --z1:#86b6ef; --z2:#5598e7; --z3:#2a78d6; --z4:#1c5cab; --z5:#104281;
+  --bt1:#0c2440; --bt2:#0c2440; --bt3:#ffffff; --bt4:#ffffff; --bt5:#ffffff;
+  --zone-a:0.22;
+  --f0:#9aa3ae; --f1:#5598e7; --f2:#2a78d6; --f3:#104281;
+  --warn:#fab219;
+  --shadow:0 1px 2px rgba(16,20,25,.05), 0 8px 24px -16px rgba(16,20,25,.28);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+  --ground:#0d1117; --panel:#151a21; --panel-2:#12171e;
+  --ink:#eef2f6; --ink-2:#a4aebc; --ink-3:#717d8c;
+  --rule:#242c36; --rule-2:#1c232b;
+  --accent:#3987e5; --accent-soft:#152437;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+  --z1:#184f95; --z2:#256abf; --z3:#3987e5; --z4:#6da7ec; --z5:#9ec5f4;
+  --bt1:#ffffff; --bt2:#ffffff; --bt3:#ffffff; --bt4:#06182b; --bt5:#06182b;
+  --zone-a:0.30;
+  --f0:#5c6673; --f1:#256abf; --f2:#3987e5; --f3:#9ec5f4;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.9);
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --ground:#0d1117; --panel:#151a21; --panel-2:#12171e;
+  --ink:#eef2f6; --ink-2:#a4aebc; --ink-3:#717d8c;
+  --rule:#242c36; --rule-2:#1c232b;
+  --accent:#3987e5; --accent-soft:#152437;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+  --z1:#184f95; --z2:#256abf; --z3:#3987e5; --z4:#6da7ec; --z5:#9ec5f4;
+  --bt1:#ffffff; --bt2:#ffffff; --bt3:#ffffff; --bt4:#06182b; --bt5:#06182b;
+  --zone-a:0.30;
+  --f0:#5c6673; --f1:#256abf; --f2:#3987e5; --f3:#9ec5f4;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.9);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--ground); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased}
+.num{font-variant-numeric:tabular-nums;font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+
+.shell{display:grid; grid-template-columns:216px minmax(0,1fr); min-height:100vh}
+.rail{border-right:1px solid var(--rule); background:var(--panel-2);
+  padding-block:22px; padding-inline:16px; position:sticky; top:0; height:100vh; overflow:auto}
+.brand b{font-size:15px; font-weight:600; letter-spacing:-.01em}
+.railsub{font-size:11.5px; color:var(--ink-3); margin:4px 0 20px; line-height:1.4}
+nav{display:flex; flex-direction:column; gap:1px}
+nav button{all:unset; cursor:pointer; display:flex; align-items:center; gap:9px;
+  padding:8px 10px; border-radius:6px; font-size:13.5px; color:var(--ink-2)}
+nav button .idx{font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--ink-3); width:14px}
+nav button:hover{background:var(--rule-2); color:var(--ink)}
+nav button[aria-current="true"]{background:var(--accent-soft); color:var(--accent); font-weight:600}
+nav button[aria-current="true"] .idx{color:var(--accent)}
+nav button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+.railfoot{margin-top:22px; padding-top:14px; border-top:1px solid var(--rule); font-size:11px; color:var(--ink-3); line-height:1.5}
+
+main{padding-block:30px 64px; padding-inline:32px; max-width:1060px; width:100%}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-3)}
+h1{font-size:27px; line-height:1.2; letter-spacing:-.02em; margin:4px 0 6px; font-weight:600; text-wrap:balance}
+h2{font-size:17px; margin:0 0 2px; font-weight:600; letter-spacing:-.01em}
+.lede{color:var(--ink-2); max-width:66ch; margin:0 0 24px; font-size:14.5px}
+section[hidden]{display:none!important}
+.block{margin-bottom:30px}
+.block>header{margin-bottom:12px}
+.block>header p{margin:3px 0 0; color:var(--ink-2); font-size:13.5px; max-width:70ch}
+.panel{background:var(--panel); border:1px solid var(--rule); border-radius:10px; box-shadow:var(--shadow)}
+.pad{padding:18px 20px}
+
+/* ---- hero ---- */
+.signal{display:grid; grid-template-columns:minmax(0,1fr) 250px}
+.signal>div:first-child{padding:20px 22px}
+.sidecar{border-left:1px solid var(--rule); padding:20px 22px; display:flex; flex-direction:column; gap:16px}
+.state-name{font-size:29px; font-weight:700; letter-spacing:-.025em; line-height:1.1; margin:2px 0 0}
+.scale-track{display:flex; height:36px; border-radius:5px; overflow:hidden; border:1px solid var(--rule)}
+.scale-track div{position:relative; display:flex; align-items:center; justify-content:center}
+.bandlab{font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:600}
+.scalewrap{position:relative; margin-top:18px}
+.needle{position:absolute; top:-7px; bottom:-7px; width:2px; background:var(--ink); border-radius:2px}
+.needle::after{content:""; position:absolute; top:-5px; left:50%; transform:translateX(-50%); border:5px solid transparent; border-top-color:var(--ink)}
+.bandchips{display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:14px; font-size:11.5px; color:var(--ink-2)}
+.bandchips span{display:inline-flex; align-items:center; gap:6px; white-space:nowrap}
+.bandchips i{width:10px; height:10px; border-radius:2px; display:inline-block; flex:none}
+.bandchips b{font-family:"IBM Plex Mono",monospace; font-weight:600; color:var(--ink)}
+.readout{display:flex; flex-direction:column; gap:2px}
+.readout .k{font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-3)}
+.readout .v{font-size:23px; font-weight:600; letter-spacing:-.02em}
+.readout .s{font-size:11.5px; color:var(--ink-3)}
+.bigaporte{border-top:1px solid var(--rule); padding-top:14px}
+.bigaporte .v{font-size:30px; color:var(--accent)}
+
+/* ---- indicator cards with strength bars ---- */
+.indgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(228px,1fr)); gap:12px}
+.indcard{background:var(--panel); border:1px solid var(--rule); border-radius:9px; padding:13px 14px 12px}
+.indcard.off{background:var(--panel-2)}
+.indhead{display:flex; justify-content:space-between; align-items:baseline; gap:8px}
+.indhead .nm{font-size:13.5px; font-weight:600; letter-spacing:-.01em}
+.pesotag{font-family:"IBM Plex Mono",monospace; font-size:9.5px; letter-spacing:.06em;
+  padding:1px 6px; border-radius:20px; background:var(--accent-soft); color:var(--accent); white-space:nowrap}
+.pesotag.ghost{background:transparent; color:var(--ink-3); border:1px solid var(--rule)}
+.indval{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums;
+  font-size:21px; font-weight:500; letter-spacing:-.02em; margin:3px 0 9px}
+.sbar{position:relative; height:8px; border-radius:4px; background:var(--rule); overflow:hidden}
+.sbar .fill{position:absolute; inset:0 auto 0 0; border-radius:4px}
+.sbar .tick{position:absolute; top:0; bottom:0; width:1px; background:var(--panel); opacity:.9}
+.sfoot{display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-top:7px}
+.slabel{font-size:11.5px; font-weight:600; letter-spacing:-.01em}
+.sctx{font-family:"IBM Plex Mono",monospace; font-size:10px; color:var(--ink-3)}
+.indnote{font-size:11px; color:var(--ink-3); margin-top:7px; line-height:1.4}
+
+table{width:100%; border-collapse:collapse; font-size:13px}
+th,td{text-align:right; padding:7px 10px; border-bottom:1px solid var(--rule-2)}
+th:first-child,td:first-child{text-align:left}
+thead th{font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); border-bottom:1px solid var(--rule); font-weight:500; white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+td.num,th.num{font-variant-numeric:tabular-nums; font-family:"IBM Plex Mono",monospace}
+tr.hi td{background:var(--accent-soft)}
+tr.hi td:first-child{font-weight:600}
+.scroll{overflow-x:auto; -webkit-overflow-scrolling:touch}
+
+.controls{display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-bottom:14px}
+.field{display:flex; flex-direction:column; gap:3px}
+.field label{font-family:"IBM Plex Mono",monospace; font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3)}
+select,input[type=number]{font:inherit; font-size:13.5px; padding:6px 9px; border:1px solid var(--rule);
+  border-radius:6px; background:var(--panel); color:var(--ink); min-width:0}
+select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+.seg{display:inline-flex; border:1px solid var(--rule); border-radius:6px; overflow:hidden; background:var(--panel)}
+.seg button{all:unset; cursor:pointer; padding:6px 11px; font-size:12.5px; color:var(--ink-2)}
+.seg button[aria-pressed="true"]{background:var(--accent); color:#fff; font-weight:500}
+.btn{all:unset; cursor:pointer; padding:7px 13px; border-radius:6px; border:1px solid var(--rule); font-size:13px; background:var(--panel); color:var(--ink)}
+.btn:hover{background:var(--rule-2)}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:500}
+
+.legend{display:flex; flex-wrap:wrap; gap:14px; font-size:12px; color:var(--ink-2); margin-bottom:6px}
+.legend i{display:inline-block; width:16px; height:3px; border-radius:2px; vertical-align:middle; margin-right:6px}
+.chart{position:relative}
+.chart svg{display:block; width:100%; overflow:visible}
+.tip{position:absolute; pointer-events:none; opacity:0; transition:opacity .1s;
+  background:var(--panel); border:1px solid var(--rule); border-radius:7px; padding:7px 10px;
+  font-size:11.5px; box-shadow:var(--shadow); z-index:5; min-width:120px}
+.tip .d{font-family:"IBM Plex Mono",monospace; font-size:10px; color:var(--ink-3); letter-spacing:.06em; margin-bottom:3px}
+.tip .r{display:flex; justify-content:space-between; gap:14px}
+.tip .r b{font-variant-numeric:tabular-nums; font-family:"IBM Plex Mono",monospace; font-weight:500}
+
+.note{font-size:12.5px; color:var(--ink-2); background:var(--panel-2); border:1px solid var(--rule);
+  border-left:3px solid var(--accent); border-radius:0 7px 7px 0; padding:11px 14px; margin-top:12px}
+.note b{color:var(--ink)}
+.warnnote{border-left-color:var(--warn)}
+.footnote{font-size:11.5px; color:var(--ink-3); margin-top:8px}
+.kpi-row{display:flex; flex-wrap:wrap; gap:26px; padding:14px 0}
+.kpi{display:flex; flex-direction:column}
+.kpi b{font-size:25px; font-weight:600; letter-spacing:-.02em}
+.kpi span{font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3)}
+.prose{font-size:13.5px;color:var(--ink-2);display:flex;flex-direction:column;gap:10px}
+.prose b{color:var(--ink)}
+
+@media (max-width:860px){
+  .shell{grid-template-columns:1fr}
+  .rail{position:static; height:auto; border-right:none; border-bottom:1px solid var(--rule); padding-block:14px}
+  nav{flex-direction:row; overflow-x:auto; gap:4px}
+  nav button{white-space:nowrap; padding:6px 11px}
+  nav button .idx{display:none}
+  .railsub,.railfoot{display:none}
+  main{padding-inline:16px; padding-block:20px 56px}
+  .signal{grid-template-columns:1fr}
+  .sidecar{border-left:none; border-top:1px solid var(--rule); flex-direction:row; flex-wrap:wrap; gap:20px}
+  .sidecar>div{flex:1 1 120px}
+  .indgrid{grid-template-columns:1fr}
+  h1{font-size:22px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+</style>
+
+<script src="data.js"></script>
+
+<div class="shell">
+  <aside class="rail">
+    <div class="brand"><b>BTC Dynamic DCA</b></div>
+    <div class="railsub">Aporte diário com peso variável, calibrado por indicadores on-chain e de preço.</div>
+    <nav id="nav"></nav>
+    <div class="railfoot">Preço: Bitstamp BTC/USD<br>On-chain: Coin Metrics<br><span id="stamp"></span></div>
+  </aside>
+
+  <main>
+    <!-- HOJE -->
+    <section id="p-hoje">
+      <div class="eyebrow">Sinal do dia</div>
+      <h1 id="hoje-h1">Hoje</h1>
+      <p class="lede" id="hoje-lede"></p>
+
+      <div class="panel signal block">
+        <div>
+          <div class="eyebrow">Opportunity Score</div>
+          <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+            <div class="num" id="score-num" style="font-size:44px;font-weight:600;letter-spacing:-.03em;line-height:1"></div>
+            <div>
+              <div class="state-name" id="state-name"></div>
+              <div style="font-size:12px;color:var(--ink-3)" id="state-sub"></div>
+            </div>
+          </div>
+          <div class="scalewrap"><div class="scale-track" id="scale-track"></div><div class="needle" id="needle"></div></div>
+          <div class="bandchips" id="bandchips"></div>
+        </div>
+        <div class="sidecar">
+          <div class="readout"><div class="k">Preço BTC</div><div class="v num" id="ro-price"></div><div class="s" id="ro-pricesub"></div></div>
+          <div class="readout"><div class="k">Multiplicador</div><div class="v num" id="ro-mult"></div><div class="s" id="ro-multsub"></div></div>
+          <div class="readout bigaporte"><div class="k">Aporte recomendado hoje</div><div class="v num" id="ro-aporte"></div><div class="s" id="ro-aportesub"></div></div>
+        </div>
+      </div>
+
+      <div id="divergence"></div>
+
+      <div class="block">
+        <header><h2>Indicadores</h2><p>Cada barra mostra a força de compra: quão barato o indicador está hoje em relação a toda a sua própria história anterior. Percentil calculado só contra o passado, nunca contra o futuro.</p></header>
+        <div class="indgrid" id="ind-grid"></div>
+      </div>
+
+      <div class="block">
+        <header><h2>Confiança do sinal</h2></header>
+        <div class="panel pad" id="confidence"></div>
+      </div>
+    </section>
+
+    <!-- HISTÓRICO -->
+    <section id="p-historico" hidden>
+      <div class="eyebrow">Histórico</div>
+      <h1>Onde o modelo comprou mais</h1>
+      <p class="lede">Preço do Bitcoin em escala logarítmica, com o fundo colorido pelo multiplicador em vigor naquele dia.</p>
+      <div class="block">
+        <div class="legend" id="zone-legend"></div>
+        <div class="panel pad"><div class="chart" id="ch-price"></div></div>
+      </div>
+      <div class="block">
+        <header><h2>Opportunity Score ao longo do tempo</h2><p id="score-hist-sub"></p></header>
+        <div class="legend" id="lg-score"></div>
+        <div class="panel pad"><div class="chart" id="ch-score"></div></div>
+      </div>
+    </section>
+
+    <!-- BACKTEST -->
+    <section id="p-backtest" hidden>
+      <div class="eyebrow">Backtest</div>
+      <h1>As três estratégias</h1>
+      <p class="lede">A comparação que importa é B contra C. As duas gastam exatamente o mesmo dinheiro; a diferença é só onde esse dinheiro foi colocado.</p>
+      <div class="controls">
+        <div class="field"><label for="bt-period">Período</label>
+          <div class="seg" id="bt-period">
+            <button data-v="2021" aria-pressed="true">2021 → hoje</button>
+            <button data-v="2013" aria-pressed="false">2013 → hoje</button>
+          </div>
+        </div>
+      </div>
+      <div class="kpi-row" id="bt-kpis"></div>
+      <div class="block">
+        <div class="panel pad scroll"><table id="bt-table"></table></div>
+        <div class="footnote">C é calculado <i>ex post</i>: capital total de B dividido pelo número de dias. É o controle correto para separar alocação de volume de capital, mas não é uma estratégia implementável em tempo real.</div>
+      </div>
+      <div class="block">
+        <header><h2>Os dois motores, lado a lado</h2><p>Mesmo perfil, mesmo período, mesma base. A diferença de capital é o que torna a leitura de eficiência enganosa se olhada sozinha.</p></header>
+        <div class="panel pad scroll"><table id="bt-sources"></table></div>
+        <div class="note" id="src-note"></div>
+      </div>
+      <div class="block">
+        <header><h2>BTC acumulado</h2></header>
+        <div class="legend" id="lg-btc"></div>
+        <div class="panel pad"><div class="chart" id="ch-btc"></div></div>
+      </div>
+      <div class="block">
+        <header><h2>Preço médio de aquisição</h2></header>
+        <div class="legend" id="lg-avg"></div>
+        <div class="panel pad"><div class="chart" id="ch-avg"></div></div>
+      </div>
+      <div class="block">
+        <header><h2>Distribuição dos aportes</h2></header>
+        <div class="panel pad scroll"><table id="bt-dist"></table></div>
+      </div>
+      <div class="block">
+        <header><h2>Consistência entre janelas</h2><p>Eficiência em cada janela móvel de 4 anos desde 2013, uma a cada 15 dias.</p></header>
+        <div class="panel pad"><div class="chart" id="ch-roll"></div></div>
+        <div class="note" id="roll-note"></div>
+      </div>
+    </section>
+
+    <!-- INDICADORES -->
+    <section id="p-indicadores" hidden>
+      <div class="eyebrow">Indicadores</div>
+      <h1>Painel completo</h1>
+      <p class="lede">Série histórica semanal de cada indicador candidato e a posição de hoje.</p>
+      <div id="ind-charts"></div>
+    </section>
+
+    <!-- EVIDÊNCIA -->
+    <section id="p-evidencia" hidden>
+      <div class="eyebrow">Evidência</div>
+      <h1>Por que esta regra, e não outra</h1>
+      <p class="lede">Tudo o que foi testado, inclusive o que não funcionou. A métrica é a eficiência de BTC contra um DCA uniforme de capital idêntico: 1,00 significa empate.</p>
+
+      <div class="block">
+        <header><h2>Calibração do score composto</h2><p>Grid de 11.990 modelos, com os quatro indicadores obrigados a ter peso ≥ 1, avaliados em janelas móveis de 4 anos. Os pesos do app são números redondos dentro da região estável dos 50 melhores.</p></header>
+        <div class="panel pad scroll"><table id="ev-calib"></table></div>
+        <div class="note warnnote" id="calib-note"></div>
+      </div>
+
+      <div class="block">
+        <header><h2>Walk-forward do score composto</h2><p>Pesos e cortes escolhidos usando apenas dados anteriores a cada data de decisão, medidos nos dois anos seguintes.</p></header>
+        <div class="panel pad scroll"><table id="ev-cwf"></table></div>
+        <div class="note" id="cwf-note"></div>
+      </div>
+
+      <div class="block">
+        <header><h2>Comparação a capital equiparado</h2><p>Modelos escalados para consumir 1,31× de capital, em 119 janelas de 4 anos. "Rank" é o percentil da eficiência real contra o mesmo padrão de pesos embaralhado dentro da própria janela.</p></header>
+        <div class="panel pad scroll"><table id="ev-h2h"></table></div>
+      </div>
+
+      <div class="block">
+        <header><h2>MVRV contra Preço/MM200W, cara a cara</h2><p>Os dois disparam em frequências diferentes — MVRV&lt;1,20 em 12,8% dos dias, MM200W&lt;1,20 em 19,3% — então o threshold nominal não é comparação justa. Amostra comum 2015-11 a 2026-09.</p></header>
+        <div class="panel pad scroll"><table id="ev-ma"></table></div>
+        <div class="note warnnote" id="ma-note"></div>
+      </div>
+
+      <div class="block">
+        <header><h2>A fronteira entre capital e BTC</h2><p>Não existe multiplicador ótimo, existe uma escolha de quanto capital extra imobilizar. A taxa de acerto é constante em toda a fronteira.</p></header>
+        <div class="panel pad scroll"><table id="ev-front"></table></div>
+      </div>
+
+      <div class="block">
+        <header><h2>Walk-forward da escada de MVRV</h2></header>
+        <div class="panel pad scroll"><table id="ev-wf"></table></div>
+        <div class="note" id="wf-note"></div>
+      </div>
+
+      <div class="block">
+        <header><h2>Combinações de indicadores</h2><p>Os 31 subconjuntos possíveis de MVRV, Mayer, MM200W, RSI semanal e Hash Ribbons na arquitetura de score, sem restrição de peso.</p></header>
+        <div class="panel pad scroll"><table id="ev-sub"></table></div>
+      </div>
+
+      <div class="block">
+        <header><h2>A fase de recuperação não se sustenta</h2><p>25 combinações de gatilho, duração e multiplicador. A eficiência não se move; o capital exigido sobe.</p></header>
+        <div class="panel pad scroll"><table id="ev-rec"></table></div>
+      </div>
+
+      <div class="block">
+        <header><h2>O que não funcionou</h2></header>
+        <div class="panel pad scroll"><table id="ev-fail"></table></div>
+      </div>
+    </section>
+
+    <!-- CONFIGURAÇÕES -->
+    <section id="p-config" hidden>
+      <div class="eyebrow">Configurações</div>
+      <h1>Ajustes</h1>
+      <p class="lede">O que você escolher aqui vale para todas as telas.</p>
+
+      <div class="block">
+        <header><h2>Quem decide o multiplicador</h2><p>As duas fontes produzem um índice de 0 a 100. A escolha muda o aporte recomendado e todos os backtests do app.</p></header>
+        <div class="panel pad">
+          <div class="controls" style="margin:0">
+            <div class="field"><label for="cfg-src">Fonte do multiplicador</label>
+              <select id="cfg-src" style="min-width:260px">
+                <option value="composto">Score composto — 4 indicadores</option>
+                <option value="mvrv">Escada de MVRV — validada</option>
+              </select></div>
+          </div>
+          <div class="footnote" id="src-explain"></div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="panel pad">
+          <div class="controls" style="margin:0">
+            <div class="field"><label for="cfg-base">Aporte-base por dia</label>
+              <input type="number" id="cfg-base" min="1" step="10" value="100" style="width:130px"></div>
+            <div class="field"><label for="cfg-cur">Moeda</label>
+              <select id="cfg-cur"><option value="USD">US$ — dólar</option><option value="BRL">R$ — real</option></select></div>
+            <div class="field" id="fx-field" hidden><label for="cfg-fx">Cotação USD→BRL</label>
+              <input type="number" id="cfg-fx" min="0.01" step="0.01" value="5.40" style="width:110px"></div>
+            <div class="field"><label for="cfg-prof">Perfil de multiplicador</label>
+              <select id="cfg-prof">
+                <option value="conservador">Conservador — máx. 3×</option>
+                <option value="moderado">Moderado — máx. 3×</option>
+                <option value="agressivo" selected>Agressivo — máx. 4×</option>
+                <option value="muito agressivo">Muito agressivo — máx. 5×</option>
+              </select></div>
+            <div class="field"><label for="cfg-theme">Tema</label>
+              <select id="cfg-theme"><option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Escuro</option></select></div>
+          </div>
+          <div class="footnote" id="cfg-status">As preferências valem para esta sessão.</div>
+        </div>
+      </div>
+
+      <div class="block">
+        <header><h2>Pesos do score composto</h2></header>
+        <div class="panel pad scroll"><table id="cfg-weights"></table></div>
+      </div>
+
+      <div class="block">
+        <header><h2>A regra, escrita por extenso</h2></header>
+        <div class="panel pad scroll"><table id="cfg-rule"></table></div>
+        <div class="note"><b>Fase de recuperação: desativada.</b> Foi testada em 25 variantes e não produziu eficiência adicional — apenas exigiu até 24% mais capital.</div>
+      </div>
+
+      <div class="block">
+        <header><h2>Dados e exportação</h2></header>
+        <div class="panel pad">
+          <div id="export-row" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+          <div class="footnote" id="data-prov"></div>
+        </div>
+      </div>
+
+      <div class="block">
+        <header><h2>Limites que este modelo tem</h2></header>
+        <div class="panel pad prose">
+          <div><b>Três ciclos de amostra.</b> O Bitcoin tem três ciclos completos observáveis e todos terminaram em recuperação. A estratégia concentra capital nos momentos de maior estresse, o que a torna, por construção, a mais exposta ao cenário em que a recuperação não vem.</div>
+          <div><b>O capital extra precisa existir.</b> Nos piores 30 dias de 2021–2026 o modelo exigiu quatro vezes o capital do DCA fixo, num momento em que a carteira estava 50% abaixo do topo. O custo de oportunidade desse dinheiro parado não está contabilizado, e a disciplina emocional necessária também não.</div>
+          <div><b>SOPR não entrou.</b> Nenhuma fonte pública gratuita publica SOPR — exige dados em nível de UTXO.</div>
+          <div><b>O MVRV pode ser revisado.</b> O backtest usa a série corrente da Coin Metrics, não a que estava publicada em cada data histórica. A defasagem de 2 dias mitiga esse resíduo, mas não o elimina.</div>
+          <div><b>Isto não é recomendação de investimento.</b> É um estudo quantitativo sobre alocação de aportes, com todas as premissas abertas para conferência.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function(){
+"use strict";
+var D = window.__BTCDCA;
+var $ = function(s,r){return (r||document).querySelector(s)};
+var $$ = function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+var ZONE=['--z1','--z2','--z3','--z4','--z5'];
+var FCOL=['--f0','--f1','--f2','--f3'];
+var STATES=['NORMAL','ATRATIVO','MUITO ATRATIVO','CAPITULAÇÃO','EXTREMO HISTÓRICO'];
+var STATES_LC=['normal','atrativo','muito atrativo','capitulação','extremo histórico'];
+var STRENGTH=['fraca','moderada','forte','muito forte'];
+var SCUTS=D.model.strength_cuts;
+var SRCNAME={composto:'Score composto',mvrv:'Escada de MVRV'};
+
+var cfg={base:100,cur:'USD',fx:5.40,prof:'agressivo',theme:'system',period:'2021',src:'composto'};
+try{var raw=localStorage.getItem('btcdca.cfg'); if(raw) Object.assign(cfg,JSON.parse(raw));}catch(e){}
+var dbRef=null;
+function persist(){
+  try{localStorage.setItem('btcdca.cfg',JSON.stringify(cfg));}catch(e){}
+  if(dbRef) dbRef.doc('settings/main').set({base:cfg.base,cur:cfg.cur,fx:cfg.fx,prof:cfg.prof,
+    theme:cfg.theme,src:cfg.src,updated:new Date().toISOString()}).catch(function(){});
+}
+
+function sym(){return cfg.cur==='BRL'?'R$':'US$'}
+function toCur(u){return cfg.cur==='BRL'?u*cfg.fx:u}
+function money(u,d){return sym()+' '+toCur(u).toLocaleString('pt-BR',{minimumFractionDigits:d||0,maximumFractionDigits:d||0})}
+function disp(v,d){return sym()+' '+v.toLocaleString('pt-BR',{minimumFractionDigits:d||0,maximumFractionDigits:d==null?2:d})}
+function usd(v,d){return 'US$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:d||0,maximumFractionDigits:d||0})}
+function n(v,d){return (v==null||isNaN(v))?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d})}
+function pct(v,d){return (v==null||isNaN(v))?'—':(v>=0?'+':'')+v.toLocaleString('pt-BR',{minimumFractionDigits:d==null?1:d,maximumFractionDigits:d==null?1:d})+'%'}
+function fmtM(m){return m.toLocaleString('pt-BR',{maximumFractionDigits:2})+'×'}
+function baseUSD(){return cfg.cur==='BRL'?cfg.base/cfg.fx:cfg.base}
+function K(){return baseUSD()/100}
+function cuts(src){return D.model.cuts[src||cfg.src]}
+function stateIdx(score,src){var c=cuts(src),i=0; for(var j=0;j<c.length;j++) if(score>=c[j]) i=j+1; return i}
+function multOf(score,src,prof){var i=stateIdx(score,src); return i===0?1:D.model.profiles[prof||cfg.prof][i-1]}
+function dstr(s){var p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
+function dshort(s){var p=s.split('-');return p[1]+'/'+p[0].slice(2)}
+function strIdx(ch){var k=0; for(var i=0;i<SCUTS.length;i++) if(ch>=SCUTS[i]) k++; return k}
+
+/* ================= charts ================= */
+function cssvar(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
+var NS='http://www.w3.org/2000/svg';
+function el(t,a){var e=document.createElementNS(NS,t); for(var x in a) if(a[x]!=null) e.setAttribute(x,a[x]); return e}
+function niceTicks(lo,hi,c){
+  var span=(hi-lo)||1, step=Math.pow(10,Math.floor(Math.log10(span/c))), err=span/c/step;
+  if(err>=7.5)step*=10; else if(err>=3.5)step*=5; else if(err>=1.5)step*=2;
+  var out=[]; for(var v=Math.ceil(lo/step)*step; v<=hi+step*1e-6; v+=step) out.push(+v.toFixed(10));
+  return out;
+}
+function logTicks(lo,hi){var o=[];for(var e=Math.floor(Math.log10(lo));e<=Math.ceil(Math.log10(hi));e++){[1,3].forEach(function(m){var v=m*Math.pow(10,e); if(v>=lo&&v<=hi)o.push(v)})}return o}
+
+function drawChart(host,o){
+  if(!host) return;
+  host.innerHTML='';
+  var W=host.clientWidth||640, H=o.height||250;
+  var ml=o.ml==null?52:o.ml, mr=o.mr==null?12:o.mr, mt=14, mb=26;
+  var iw=Math.max(60,W-ml-mr), ih=H-mt-mb;
+  var s=el('svg',{viewBox:'0 0 '+W+' '+H,height:H,role:'img'});
+  s.setAttribute('aria-label',o.aria||'gráfico');
+  var all=[]; o.series.forEach(function(x){x.values.forEach(function(v){if(v!=null&&!isNaN(v))all.push(v)})});
+  if(o.yMin!=null) all.push(o.yMin);
+  if(!all.length){host.appendChild(s);return}
+  var lo=Math.min.apply(null,all), hi=Math.max.apply(null,all);
+  if(o.log){lo=Math.max(lo,1e-6)} else {var p=(hi-lo)*0.08||1; lo=o.yMin!=null?o.yMin:lo-p; hi=hi+p}
+  var N=o.x.length;
+  function X(i){return ml+(N<2?iw/2:i*iw/(N-1))}
+  function Y(v){ if(o.log){var a=Math.log10(lo),b=Math.log10(hi);return mt+ih-(Math.log10(Math.max(v,lo))-a)/(b-a)*ih}
+    return mt+ih-(v-lo)/(hi-lo)*ih}
+  if(o.zones){
+    var runs=[],cur=null;
+    for(var i=0;i<N;i++){var z=o.zones[i]; if(!cur||cur.z!==z){if(cur)runs.push(cur);cur={z:z,a:i,b:i}}else cur.b=i}
+    if(cur)runs.push(cur);
+    runs.forEach(function(r){ if(r.z<=0)return;
+      var x0=X(r.a),x1=X(Math.min(r.b+1,N-1));
+      s.appendChild(el('rect',{x:x0,y:mt,width:Math.max(1.5,x1-x0),height:ih,fill:cssvar(ZONE[r.z-1]),opacity:cssvar('--zone-a')}))});
+  }
+  (o.log?logTicks(lo,hi):niceTicks(lo,hi,4)).forEach(function(t){
+    var y=Y(t); if(y<mt-1||y>mt+ih+1)return;
+    s.appendChild(el('line',{x1:ml,x2:ml+iw,y1:y,y2:y,stroke:cssvar('--rule'),'stroke-width':1}));
+    var tx=el('text',{x:ml-7,y:y+3.5,'text-anchor':'end',fill:cssvar('--ink-3')});
+    tx.setAttribute('font-size','10'); tx.setAttribute('font-family','IBM Plex Mono, monospace');
+    tx.textContent=o.yFmt?o.yFmt(t):n(t,0); s.appendChild(tx);
+  });
+  var spanY=(new Date(o.x[N-1])-new Date(o.x[0]))/31557600000;
+  var defFmt=spanY>4?function(d){return d.slice(0,4)}:dshort;
+  var step=Math.max(1,Math.round(N/(W<520?4:7)));
+  for(var i2=0;i2<N;i2+=step){
+    var t2=el('text',{x:X(i2),y:mt+ih+17,'text-anchor':'middle',fill:cssvar('--ink-3')});
+    t2.setAttribute('font-size','10'); t2.setAttribute('font-family','IBM Plex Mono, monospace');
+    t2.textContent=(o.xFmt||defFmt)(o.x[i2]); s.appendChild(t2);
+  }
+  s.appendChild(el('line',{x1:ml,x2:ml+iw,y1:mt+ih,y2:mt+ih,stroke:cssvar('--rule'),'stroke-width':1}));
+  o.series.forEach(function(sr){
+    var d='',st=false;
+    for(var i=0;i<N;i++){var v=sr.values[i];
+      if(v==null||isNaN(v)){st=false;continue}
+      d+=(st?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)+' '; st=true}
+    if(sr.area){var f=null,l=null;
+      for(var j=0;j<N;j++) if(sr.values[j]!=null&&!isNaN(sr.values[j])){if(f==null)f=j;l=j}
+      if(f!=null) s.appendChild(el('path',{d:d+'L'+X(l).toFixed(1)+' '+(mt+ih)+' L'+X(f).toFixed(1)+' '+(mt+ih)+' Z',
+        fill:cssvar(sr.color),opacity:0.12,stroke:'none'}))}
+    s.appendChild(el('path',{d:d,fill:'none',stroke:cssvar(sr.color),'stroke-width':sr.width||2,
+      'stroke-linejoin':'round','stroke-linecap':'round','stroke-dasharray':sr.dash||null}));
+    if(sr.label!==false){
+      for(var e2=N-1;e2>=0;e2--) if(sr.values[e2]!=null&&!isNaN(sr.values[e2])){
+        var lx=X(e2),ly=Y(sr.values[e2]);
+        s.appendChild(el('circle',{cx:lx,cy:ly,r:3.4,fill:cssvar(sr.color),stroke:cssvar('--panel'),'stroke-width':2}));
+        if(sr.name&&iw>240){var t3=el('text',{x:lx-7,y:ly-8,'text-anchor':'end',fill:cssvar('--ink-2')});
+          t3.setAttribute('font-size','10.5'); t3.setAttribute('font-weight','500');
+          t3.textContent=sr.name; s.appendChild(t3)}
+        break}
+    }
+  });
+  host.appendChild(s);
+  var tip=document.createElement('div'); tip.className='tip'; host.appendChild(tip);
+  var cross=el('line',{x1:0,x2:0,y1:mt,y2:mt+ih,stroke:cssvar('--ink-3'),'stroke-width':1,'stroke-dasharray':'3 3',opacity:0});
+  s.appendChild(cross);
+  var dots=o.series.map(function(sr){var c=el('circle',{r:4,fill:cssvar(sr.color),stroke:cssvar('--panel'),'stroke-width':2,opacity:0});s.appendChild(c);return c});
+  s.addEventListener('pointermove',function(ev){
+    var r=s.getBoundingClientRect(), px=(ev.clientX-r.left)*(W/r.width);
+    var i=Math.max(0,Math.min(N-1,Math.round((px-ml)/(iw/(N-1||1)))));
+    cross.setAttribute('x1',X(i)); cross.setAttribute('x2',X(i)); cross.setAttribute('opacity',1);
+    var rows='';
+    o.series.forEach(function(sr,si){var v=sr.values[i];
+      if(v==null||isNaN(v)){dots[si].setAttribute('opacity',0);return}
+      dots[si].setAttribute('cx',X(i)); dots[si].setAttribute('cy',Y(v)); dots[si].setAttribute('opacity',1);
+      rows+='<div class="r"><span style="color:'+cssvar(sr.color)+'">■</span>&nbsp;<span style="flex:1">'+(sr.name||'')+'</span><b>'+(o.tipFmt?o.tipFmt(v,sr):n(v,2))+'</b></div>'});
+    tip.innerHTML='<div class="d">'+dstr(o.x[i])+'</div>'+rows+(o.tipExtra?o.tipExtra(i):'');
+    tip.style.opacity=1;
+    var tw=tip.offsetWidth, left=X(i)*(r.width/W)+14;
+    if(left+tw>r.width-4) left=X(i)*(r.width/W)-tw-14;
+    tip.style.left=Math.max(2,left)+'px'; tip.style.top=Math.max(2,(ev.clientY-r.top)-40)+'px';
+  });
+  s.addEventListener('pointerleave',function(){tip.style.opacity=0;cross.setAttribute('opacity',0);
+    dots.forEach(function(d2){d2.setAttribute('opacity',0)})});
+}
+
+function drawHist(host,o){
+  if(!host) return;
+  host.innerHTML='';
+  var W=host.clientWidth||640,H=o.height||190,ml=44,mr=12,mt=12,mb=30;
+  var iw=Math.max(60,W-ml-mr),ih=H-mt-mb;
+  var s=el('svg',{viewBox:'0 0 '+W+' '+H,height:H,role:'img'});
+  s.setAttribute('aria-label',o.aria||'histograma');
+  var maxc=Math.max.apply(null,o.bins.map(function(b){return b.c}));
+  niceTicks(0,maxc,3).forEach(function(t){
+    var y=mt+ih-t/maxc*ih;
+    s.appendChild(el('line',{x1:ml,x2:ml+iw,y1:y,y2:y,stroke:cssvar('--rule'),'stroke-width':1}));
+    var tx=el('text',{x:ml-7,y:y+3.5,'text-anchor':'end',fill:cssvar('--ink-3')});
+    tx.setAttribute('font-size','10'); tx.setAttribute('font-family','IBM Plex Mono, monospace');
+    tx.textContent=n(t,0); s.appendChild(tx)});
+  var bw=iw/o.bins.length;
+  o.bins.forEach(function(b,i){
+    var h=b.c/maxc*ih;
+    s.appendChild(el('rect',{x:ml+i*bw+1,y:mt+ih-h,width:Math.max(1,bw-2),height:Math.max(h,b.c?1.5:0),
+      fill:cssvar(b.lo<1?'--s2':'--s1'),rx:2}));
+    if(i%Math.ceil(o.bins.length/6)===0){
+      var t=el('text',{x:ml+i*bw+bw/2,y:mt+ih+16,'text-anchor':'middle',fill:cssvar('--ink-3')});
+      t.setAttribute('font-size','10'); t.setAttribute('font-family','IBM Plex Mono, monospace');
+      t.textContent=b.lo.toFixed(2).replace('.',','); s.appendChild(t)}});
+  var x1=ml+(1-o.bins[0].lo)/(o.bins[o.bins.length-1].hi-o.bins[0].lo)*iw;
+  s.appendChild(el('line',{x1:x1,x2:x1,y1:mt,y2:mt+ih,stroke:cssvar('--ink-2'),'stroke-width':1.5,'stroke-dasharray':'4 3'}));
+  var lb=el('text',{x:x1+5,y:mt+11,fill:cssvar('--ink-2')}); lb.setAttribute('font-size','10.5');
+  lb.textContent='empate'; s.appendChild(lb);
+  s.appendChild(el('line',{x1:ml,x2:ml+iw,y1:mt+ih,y2:mt+ih,stroke:cssvar('--rule'),'stroke-width':1}));
+  host.appendChild(s);
+}
+
+/* ================= HOJE ================= */
+var INDS=[
+ {k:'mvrv',    nm:'MVRV',              dec:2, w:'MVRV',   sub:'Market Value / Realized Value'},
+ {k:'p_ma200w',nm:'Preço / MM200W',    dec:2, w:'MM200W', sub:'200 semanas'},
+ {k:'rsi_weekly',nm:'RSI semanal',     dec:0, w:'RSI',    sub:'semana encerrada, Wilder 14'},
+ {k:'mayer',   nm:'Mayer Multiple',    dec:2, w:'Mayer',  sub:'preço ÷ MM200D'},
+ {k:'price_to_rp',nm:'Preço / Realized',dec:2,w:null,     sub:'custo médio da rede', note:'Correlação 0,995 com o MVRV — fora do índice para não contar a mesma evidência duas vezes.'},
+ {k:'mvrv_zscore',nm:'MVRV Z-Score',   dec:2, w:null,     sub:'desvio expanding, sem look-ahead', note:'Correlação 0,995 com o MVRV.'},
+ {k:'nupl',    nm:'NUPL',              dec:3, w:null,     sub:'1 − 1/MVRV',  note:'Identidade algébrica do MVRV: correlação exatamente 1,000.'}
+];
+
+function renderToday(){
+  var t=D.today, sc=t.scores[cfg.src], si=stateIdx(sc), m=multOf(sc);
+  $('#hoje-h1').textContent='Sinal de '+dstr(t.date);
+  $('#hoje-lede').textContent = cfg.src==='composto'
+    ? 'O modelo compra Bitcoin todos os dias. O que muda é o tamanho do aporte, definido por um índice que agrega MVRV, Preço/MM200W, RSI semanal e Mayer Multiple.'
+    : 'O modelo compra Bitcoin todos os dias. O que muda é o tamanho do aporte, definido pela escada de MVRV validada no backtest. Os demais indicadores aparecem como leitura.';
+  $('#score-num').textContent=n(sc,0)+'/100';
+  $('#state-name').textContent=STATES[si];
+  $('#state-sub').textContent=['mercado sem desconto histórico','desconto moderado','desconto relevante','capitulação','extremo histórico'][si];
+
+  var cs=[0].concat(cuts()).concat([100]), track=$('#scale-track'), chips=$('#bandchips');
+  track.innerHTML=''; chips.innerHTML='';
+  for(var i=0;i<5;i++){
+    var w=cs[i+1]-cs[i], mm=i===0?1:D.model.profiles[cfg.prof][i-1];
+    var d2=document.createElement('div');
+    d2.style.width=w+'%'; d2.style.background='var('+ZONE[i]+')';
+    d2.title=STATES[i]+' · '+fmtM(mm);
+    if(i===si) d2.style.boxShadow='inset 0 0 0 2px var(--ink)';
+    if(w>=12) d2.innerHTML='<span class="bandlab" style="color:var(--bt'+(i+1)+')">'+fmtM(mm)+'</span>';
+    track.appendChild(d2);
+    var band=(i===0?'< '+n(cs[1],0):(i===4?'≥ '+n(cs[4],0):n(cs[i],0)+'–'+n(cs[i+1],0)));
+    chips.innerHTML+='<span><i style="background:var('+ZONE[i]+')"></i>'+STATES_LC[i]+
+      ' <span style="color:var(--ink-3)">'+band+'</span> <b>'+fmtM(mm)+'</b></span>';
+  }
+  $('#needle').style.left=Math.max(0,Math.min(100,sc))+'%';
+
+  $('#ro-price').textContent=usd(t.price,0);
+  $('#ro-pricesub').textContent='fechamento Bitstamp · '+dstr(t.date);
+  $('#ro-mult').textContent=fmtM(m);
+  $('#ro-multsub').textContent=SRCNAME[cfg.src].toLowerCase()+' · perfil '+cfg.prof;
+  $('#ro-aporte').textContent=disp(cfg.base*m);
+  $('#ro-aportesub').textContent='base '+disp(cfg.base,0)+' × '+fmtM(m)+(cfg.cur==='BRL'?' · ≈ US$ '+n(cfg.base*m/cfg.fx,0):'');
+
+  // divergence between the two engines
+  var other=cfg.src==='composto'?'mvrv':'composto';
+  var mo=multOf(t.scores[other],other);
+  $('#divergence').innerHTML = (mo===m) ? '' :
+    '<div class="note warnnote block"><b>As duas fontes discordam hoje.</b> '+
+    SRCNAME[cfg.src]+' marca '+n(sc,0)+'/100 e recomenda '+fmtM(m)+'; '+SRCNAME[other]+' marca '+
+    n(t.scores[other],0)+'/100 e recomendaria '+fmtM(mo)+' ('+disp(cfg.base*mo)+'). '+
+    'Você pode trocar a fonte em Configurações.</div>';
+
+  // indicator cards
+  var g=$('#ind-grid'); g.innerHTML='';
+  INDS.forEach(function(d){
+    var o=t.indicators[d.k]; if(!o) return;
+    var ch=o.cheap==null?null:o.cheap, k=ch==null?null:strIdx(ch);
+    var inIdx=d.w!=null;
+    var card=document.createElement('div'); card.className='indcard'+(inIdx?'':' off');
+    var ticks='';
+    SCUTS.forEach(function(c){ ticks+='<div class="tick" style="left:'+(c*100)+'%"></div>'; });
+    card.innerHTML=
+      '<div class="indhead"><span class="nm">'+d.nm+'</span>'+
+        (inIdx?'<span class="pesotag">peso '+D.model.weights[d.w]+'</span>'
+              :'<span class="pesotag ghost">fora do índice</span>')+'</div>'+
+      '<div class="indval">'+n(o.value,d.dec)+'</div>'+
+      (ch==null?'<div class="sfoot"><span class="sctx">sem histórico suficiente</span></div>':
+       '<div class="sbar"><div class="fill" style="width:'+(ch*100).toFixed(1)+'%;background:var('+FCOL[k]+')"></div>'+ticks+'</div>'+
+       '<div class="sfoot"><span class="slabel" style="color:var('+FCOL[k]+')">compra '+STRENGTH[k]+'</span>'+
+       '<span class="sctx">percentil '+n(o.pct,0)+'</span></div>')+
+      '<div class="indnote">'+(d.note||(d.sub+' · mín '+n(o.min,d.dec)+' · mediana '+n(o.median,d.dec)+' · máx '+n(o.max,d.dec)))+'</div>';
+    g.appendChild(card);
+  });
+  if(t.hash_ribbon){
+    var hv=t.hash_ribbon==='capitulacao'?'capitulação de mineradores':t.hash_ribbon==='recuperacao'?'recuperação recente':'normal';
+    var c2=document.createElement('div'); c2.className='indcard off';
+    c2.innerHTML='<div class="indhead"><span class="nm">Hash Ribbons</span><span class="pesotag ghost">fora do índice</span></div>'+
+      '<div class="indval" style="font-size:16px">'+hv+'</div>'+
+      '<div class="indnote">MA30 vs MA60 do hash rate. É o único indicador com informação de fato independente (correlação negativa com os demais), mas piorou todos os 31 subconjuntos testados.</div>';
+    g.appendChild(c2);
+  }
+
+  var mv=t.indicators.mvrv, conf, why;
+  if(si>=3){conf='alta'; why='O índice está na faixa em que a evidência histórica é mais forte, e o MVRV está no percentil '+n(mv.pct,0)+' da própria história.'}
+  else if(si>=1){conf='média'; why='O mercado entrou em faixa de desconto, mas ainda longe dos extremos onde o backtest mostra a maior vantagem.'}
+  else {conf='baixa para agir, alta para esperar'; why='O índice está em '+n(sc,0)+'. O modelo passou a maior parte do backtest exatamente aqui, comprando a base e nada mais. A espera é o comportamento normal, não uma falha.'}
+  $('#confidence').innerHTML='<div style="display:flex;gap:22px;flex-wrap:wrap;align-items:baseline">'+
+    '<div><div style="font-family:IBM Plex Mono,monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3)">Confiança</div>'+
+    '<div style="font-size:21px;font-weight:600;letter-spacing:-.02em">'+conf+'</div></div>'+
+    '<div style="flex:1 1 300px;color:var(--ink-2);font-size:13.5px">'+why+'</div></div>'+
+    '<div class="footnote">On-chain com defasagem de 2 dias (dado de '+dstr(t.data_date_onchain)+'); indicadores de preço com 1 dia. Nenhum valor futuro entra no sinal de hoje.</div>';
+}
+
+/* ================= HISTÓRICO ================= */
+function renderHist(){
+  var lg=$('#zone-legend');
+  lg.innerHTML='<span><i style="background:transparent;border:1px solid var(--rule);height:10px;width:14px;border-radius:2px"></i>normal · 1× (sem faixa)</span>';
+  for(var i=1;i<5;i++) lg.innerHTML+='<span><i style="background:var('+ZONE[i]+');height:10px;width:14px;border-radius:2px"></i>'+
+    STATES_LC[i]+' · '+fmtM(D.model.profiles[cfg.prof][i-1])+'</span>';
+  var H=D.hist, zs=H['state_'+cfg.src], scs=H['score_'+cfg.src];
+  drawChart($('#ch-price'),{x:H.dates,log:true,height:300,ml:56,zones:zs,
+    series:[{name:'BTC/USD',values:H.price,color:'--ink'}],
+    yFmt:function(v){return v>=1000?(v/1000)+'k':n(v,0)}, tipFmt:function(v){return usd(v,0)},
+    tipExtra:function(i){var s=scs[i]; if(s==null)return '';
+      return '<div class="r" style="margin-top:3px;padding-top:3px;border-top:1px solid var(--rule)"><span>score</span><b>'+n(s,0)+'</b></div>'+
+             '<div class="r"><span>aporte</span><b>'+fmtM(multOf(s))+'</b></div>'},
+    aria:'Preço do Bitcoin com faixas de multiplicador'});
+  $('#score-hist-sub').textContent = cfg.src==='composto'
+    ? 'Índice composto: média ponderada das baratezas de MVRV (45), MM200W (30), RSI semanal (15) e Mayer (10). Cortes em 70 / 76 / 82 / 88.'
+    : 'Reexpressão monotônica do MVRV: 50 = MVRV 1,20 · 70 = 1,00 · 80 = 0,95 · 90 = 0,90.';
+  $('#lg-score').innerHTML='<span><i style="background:var(--s1)"></i>'+SRCNAME[cfg.src]+' (em uso)</span>'+
+    '<span><i style="background:var(--s2)"></i>'+SRCNAME[cfg.src==='composto'?'mvrv':'composto']+'</span>';
+  drawChart($('#ch-score'),{x:H.dates,height:200,yMin:0,
+    series:[{name:'',values:scs,color:'--s1',area:true},
+            {name:'',values:H['score_'+(cfg.src==='composto'?'mvrv':'composto')],color:'--s2',width:1.4}],
+    yFmt:function(v){return n(v,0)},tipFmt:function(v){return n(v,0)},aria:'Opportunity Score ao longo do tempo'});
+}
+
+/* ================= BACKTEST ================= */
+function renderBacktest(){
+  var key=cfg.src+'|'+cfg.prof+'|'+cfg.period, b=D.backtest[key], s=D.series[key], k=K();
+  var rowsDef=[['Capital investido','capital',function(v){return money(v*k,0)}],
+    ['BTC acumulado','btc',function(v){return n(v*k,6)}],
+    ['Preço médio','avg_price',function(v){return money(v,0)}],
+    ['Valor final','final_value',function(v){return money(v*k,0)}],
+    ['Lucro','profit',function(v){return money(v*k,0)}],
+    ['ROI','roi',function(v){return pct(v*100,1)}],
+    ['Max drawdown','max_dd',function(v){return pct(v*100,1)}],
+    ['Maior aporte diário','max_daily',function(v){return money(v*k,0)}]];
+  var cols=[['A_fixed','A — DCA fixo'],['B_dynamic','B — DCA dinâmico'],['C_equal_capital','C — uniforme, mesmo capital']];
+  var h='<thead><tr><th>Métrica</th>'+cols.map(function(c){return '<th class="num">'+c[1]+'</th>'}).join('')+'</tr></thead><tbody>';
+  rowsDef.forEach(function(r){
+    h+='<tr><td>'+r[0]+'</td>'+cols.map(function(c){
+      var hi=(r[1]==='btc'||r[1]==='avg_price')&&c[0]==='B_dynamic';
+      return '<td class="num"'+(hi?' style="font-weight:600;color:var(--accent)"':'')+'>'+r[2](b.rows[c[0]][r[1]])+'</td>'}).join('')+'</tr>'});
+  h+='<tr class="hi"><td>BTC adicional vs C</td><td class="num">—</td><td class="num">'+pct(b.extra_btc_pct,2)+'</td><td class="num">—</td></tr>';
+  h+='<tr class="hi"><td>Melhora do preço médio</td><td class="num">—</td><td class="num">'+pct(b.avg_cost_improvement,2)+'</td><td class="num">—</td></tr>';
+  $('#bt-table').innerHTML=h+'</tbody>';
+
+  $('#bt-kpis').innerHTML='<div class="kpi"><b style="color:var(--accent)">'+pct(b.extra_btc_pct,2)+'</b><span>BTC extra, mesmo capital</span></div>'+
+    '<div class="kpi"><b>'+pct(b.avg_cost_improvement,2)+'</b><span>preço médio menor</span></div>'+
+    '<div class="kpi"><b>'+n(b.capital_ratio,2)+'×</b><span>capital vs DCA fixo</span></div>'+
+    '<div class="kpi"><b>'+n(b.days,0)+'</b><span>dias de aporte</span></div>';
+
+  // two engines side by side
+  var sh='<thead><tr><th>Motor</th><th class="num">BTC extra vs C</th><th class="num">Preço médio menor</th><th class="num">Capital vs DCA fixo</th><th class="num">Maior aporte</th><th class="num">Pior 30 dias</th></tr></thead><tbody>';
+  ['composto','mvrv'].forEach(function(src){
+    var x=D.backtest[src+'|'+cfg.prof+'|'+cfg.period];
+    sh+='<tr'+(src===cfg.src?' class="hi"':'')+'><td>'+SRCNAME[src]+(src===cfg.src?' (em uso)':'')+'</td>'+
+      '<td class="num">'+pct(x.extra_btc_pct,2)+'</td><td class="num">'+pct(x.avg_cost_improvement,2)+'</td>'+
+      '<td class="num">'+n(x.capital_ratio,3)+'×</td><td class="num">'+money(x.rows.B_dynamic.max_daily*k,0)+'</td>'+
+      '<td class="num">'+money(x.worst30*k,0)+'</td></tr>'});
+  $('#bt-sources').innerHTML=sh+'</tbody>';
+  var rc=D.rolling.composto, rm=D.rolling.mvrv;
+  $('#src-note').innerHTML='Nos seus níveis naturais de capital os dois praticamente empatam em eficiência mediana entre janelas — '+
+    n(rc.median,4)+' do composto contra '+n(rm.median,4)+' da escada de MVRV — mas o composto chega lá consumindo bem mais capital. '+
+    '<b>Igualando o capital em 1,31×, a escada de MVRV entrega 1,2178 contra 1,1399 do composto.</b> '+
+    'Em compensação o composto tem pior janela um pouco melhor (0,873 contra 0,869) e a mesma taxa de acerto. '+
+    'É um sinal mais suave: erra menos feio e acerta menos alto.';
+
+  var lgH=function(l){return l.map(function(x){return '<span><i style="background:var('+x[1]+')"></i>'+x[0]+'</span>'}).join('')};
+  $('#lg-btc').innerHTML=lgH([['A — DCA fixo','--s1'],['B — DCA dinâmico','--s2'],['C — uniforme, mesmo capital','--s3']]);
+  $('#lg-avg').innerHTML=lgH([['B — dinâmico','--s2'],['C — uniforme','--s3']]);
+  drawChart($('#ch-btc'),{x:s.dates,height:280,ml:60,
+    series:[{name:'A',values:s.btc_a.map(function(v){return v*k}),color:'--s1'},
+            {name:'B',values:s.btc_b.map(function(v){return v*k}),color:'--s2'},
+            {name:'C',values:s.btc_c.map(function(v){return v*k}),color:'--s3'}],
+    yFmt:function(v){return n(v,v<10?2:0)},tipFmt:function(v){return n(v,6)+' BTC'},aria:'BTC acumulado'});
+  drawChart($('#ch-avg'),{x:s.dates,height:230,ml:62,
+    series:[{name:'B',values:s.avg_b,color:'--s2'},{name:'C',values:s.avg_c,color:'--s3'}],
+    yFmt:function(v){return v>=1000?(v/1000)+'k':n(v,0)},tipFmt:function(v){return money(v,0)},aria:'Preço médio'});
+
+  var dist=b.dist;
+  var dh='<thead><tr><th>Multiplicador</th><th class="num">% dos dias</th><th class="num">Dias</th><th class="num">Aporte diário</th></tr></thead><tbody>';
+  Object.keys(dist).sort(function(a,c){return +a-+c}).forEach(function(x){
+    dh+='<tr><td class="num">'+fmtM(+x)+'</td><td class="num">'+n(dist[x],1)+'%</td>'+
+        '<td class="num">'+n(Math.round(dist[x]/100*b.days),0)+'</td><td class="num">'+disp(cfg.base*(+x))+'</td></tr>'});
+  $('#bt-dist').innerHTML=dh+'</tbody>';
+
+  var R=D.rolling[cfg.src], effs=R.eff.filter(function(v){return v!=null});
+  var lo=Math.floor(Math.min.apply(null,effs)*20)/20, hi=Math.ceil(Math.max.apply(null,effs)*20)/20;
+  var nb=Math.max(8,Math.round((hi-lo)/0.025)), bins=[];
+  for(var i=0;i<nb;i++) bins.push({lo:lo+i*(hi-lo)/nb,hi:lo+(i+1)*(hi-lo)/nb,c:0});
+  effs.forEach(function(v){bins[Math.min(nb-1,Math.floor((v-lo)/((hi-lo)/nb)))].c++});
+  drawHist($('#ch-roll'),{bins:bins,height:200,aria:'Distribuição da eficiência em janelas de 4 anos'});
+  $('#roll-note').innerHTML='<b>'+n(R.win,1)+'% das janelas</b> ficaram acima do empate, com mediana de '+n(R.median,4)+
+    ' — '+pct((R.median-1)*100,1)+' de BTC com o mesmo capital. Pior janela '+n(R.worst,3)+', melhor '+n(R.best,3)+
+    '. <i>'+SRCNAME[cfg.src]+', perfil agressivo.</i>';
+}
+
+/* ================= INDICADORES ================= */
+var indDone=false;
+function renderIndicadores(){
+  if(indDone) return; indDone=true;
+  var host=$('#ind-charts'); host.innerHTML='';
+  var defs=[['MVRV','mvrv','mvrv',2,'Peso 45 no índice composto. Único indicador que, sozinho, bate todas as combinações testadas a capital igualado.'],
+   ['Preço / MM200W','p200w','p_ma200w',2,'Peso 30. Sinal real, porém mais caro: na amostra justa entrega 1,047 consumindo 1,36× de capital, contra 1,146 a 1,21× do MVRV.'],
+   ['RSI semanal','rsi','rsi_weekly',0,'Peso 15. Correlação de 0,93 com o Mayer — os dois são praticamente o mesmo sinal de momentum.'],
+   ['Mayer Multiple','mayer','mayer',2,'Peso 10. Quando o Mayer está abaixo de 0,8, o RSI semanal está abaixo de 35 em 9 de cada 10 dias.'],
+   ['NUPL','nupl','nupl',3,'Fora do índice: NUPL = 1 − 1/MVRV, identidade algébrica exata.'],
+   ['MVRV Z-Score','zscore','mvrv_zscore',2,'Fora do índice: correlação 0,995 com o MVRV. Calculado com desvio-padrão expanding, sem look-ahead.'],
+   ['Realized Price vs preço','rp','realized_price',0,'Preço (escuro) e Realized Price (azul), o custo médio de aquisição de toda a rede.']];
+  defs.forEach(function(d){
+    var o=D.today.indicators[d[2]];
+    var w=document.createElement('div'); w.className='block';
+    w.innerHTML='<header><h2>'+d[0]+'</h2><p>'+d[4]+'</p></header><div class="panel pad">'+
+      '<div class="chart" id="ic-'+d[1]+'"></div><div class="footnote">Hoje: <b>'+(o?n(o.value,d[3]):'—')+'</b>'+
+      (o?' · percentil '+n(o.pct,0)+' · mín '+n(o.min,d[3])+' · mediana '+n(o.median,d[3])+' · máx '+n(o.max,d[3]):'')+'</div></div>';
+    host.appendChild(w)});
+  var H=D.hist;
+  var simple=[['mvrv',H.mvrv,1,3],['p200w',H.p200w,1,3],['rsi',H.rsi,0,1],['mayer',H.mayer,1,3],
+              ['nupl',H.nupl,2,3],['zscore',H.zscore,1,2]];
+  simple.forEach(function(x){
+    drawChart($('#ic-'+x[0]),{x:H.dates,height:190,series:[{name:'',values:x[1],color:'--s1'}],
+      yFmt:function(v){return n(v,x[2])},tipFmt:function(v){return n(v,x[3])},aria:x[0]})});
+  drawChart($('#ic-rp'),{x:H.dates,height:210,log:true,ml:56,
+    series:[{name:'preço',values:H.price,color:'--ink'},{name:'realized',values:H.rp,color:'--s1'}],
+    yFmt:function(v){return v>=1000?(v/1000)+'k':n(v,0)},tipFmt:function(v){return usd(v,0)},aria:'Preço e Realized Price'});
+}
+
+/* ================= EVIDÊNCIA ================= */
+function tbl(id,cols,rows,hiFn){
+  var h='<thead><tr>'+cols.map(function(c){return '<th'+(c[2]?' class="num"':'')+'>'+c[0]+'</th>'}).join('')+'</tr></thead><tbody>';
+  rows.forEach(function(r){h+='<tr'+(hiFn&&hiFn(r)?' class="hi"':'')+'>'+
+    cols.map(function(c){return '<td'+(c[2]?' class="num"':'')+'>'+c[1](r)+'</td>'}).join('')+'</tr>'});
+  var t=$(id); if(t) t.innerHTML=h+'</tbody>';
+}
+var evDone=false;
+function renderEvidencia(){
+  if(evDone) return; evDone=true;
+  var E=D.evidence;
+  tbl('#ev-calib',[['Modelo',function(r){return r[0]},0],['MVRV',function(r){return r[1]},1],
+    ['MM200W',function(r){return r[2]},1],['RSI',function(r){return r[3]},1],['Mayer',function(r){return r[4]},1],
+    ['Eficiência',function(r){return r[5]},1],['Capital',function(r){return r[6]},1]],
+   [['Ótimo sem restrição','100','0','0','0','1,2377','1,600'],
+    ['Média dos 50 melhores com restrição','47,1','28,4','14,5','10,0','1,2232','1,591'],
+    ['Pesos adotados no app','45','30','15','10','1,2173','1,555'],
+    ['Proporção sugerida no briefing original','43','21','14','21','—','—']],
+   function(r){return r[0]==='Pesos adotados no app'});
+  $('#calib-note').innerHTML='<b>O otimizador sem restrição zera Mayer e RSI.</b> Deixado livre, o grid converge para MVRV sozinho ou MVRV + MM200W: '+
+    'os dois indicadores de momentum não sobrevivem quando o capital é contabilizado. Os pesos do app são o melhor modelo <i>sujeito à exigência</i> de que os quatro participem, '+
+    'e ficam dentro da região estável dos 50 melhores (desvio-padrão dos pesos relativos entre 0,03 e 0,09). O custo dessa exigência é medido e está na tabela de capital equiparado.';
+
+  tbl('#ev-cwf',[['Treino até',function(r){return r.treino_ate},0],['Teste',function(r){return r.teste},0],
+    ['Pesos escolhidos',function(r){return r.pesos_escolhidos},0],['Cortes',function(r){return r.cortes},0],
+    ['OOS otimizado',function(r){return n(r.OOS_composto,4)},1],['OOS pesos fixos',function(r){return n(r.OOS_pesos_fixos,4)},1]],
+   E.comp_wf, function(r){return r.OOS_composto<1});
+  var avgO=E.comp_wf.reduce(function(a,r){return a+r.OOS_composto},0)/E.comp_wf.length;
+  var avgF=E.comp_wf.reduce(function(a,r){return a+r.OOS_pesos_fixos},0)/E.comp_wf.length;
+  $('#cwf-note').innerHTML='Fora da amostra, os pesos fixos do app rendem <b>'+n(avgF,4)+'</b> contra <b>'+n(avgO,4)+
+    '</b> do ótimo recalculado a cada janela — diferença de 0,01, ou seja, a escolha fixa não perde praticamente nada. '+
+    'Os cortes 70/76/82/88 foram escolhidos em 6 das 8 janelas, o que é o sinal de estabilidade que se quer ver. '+
+    'A linha destacada é a única janela em que o composto ficou abaixo do empate.';
+
+  tbl('#ev-h2h',[['Modelo',function(r){return r.modelo},0],['Eficiência mediana',function(r){return n(r.eff_mediana,4)},1],
+    ['Janelas vencedoras',function(r){return n(r.win,1)+'%'},1],['Pior janela',function(r){return n(r.pior,3)},1],
+    ['Rank de permutação',function(r){return n(r.rank_permut,3)},1],['2021 → hoje',function(r){return n(r.eff_2021,4)},1]],
+   E.head_to_head.concat([{modelo:'Score composto 45/30/15/10 (app)',eff_mediana:1.1399,win:82.4,pior:0.8728,rank_permut:0.860,eff_2021:1.1577}]),
+   function(r){return r.modelo.indexOf('MVRV sozinho')===0||r.modelo.indexOf('Score composto 45')===0});
+
+  tbl('#ev-ma',[['Comparação',function(r){return r[0]},0],['MVRV',function(r){return r[1]},1],
+    ['BTC/MM200W',function(r){return r[2]},1],['Vence',function(r){return r[3]},0]],
+   [['Mesmo threshold 1,20 — janelas de 3 anos','1,0803 · 81,2%','1,0896 · 84,4%','MM200W'],
+    ['Mesmo threshold 1,20 — janelas de 4 anos','1,0914 · 77,4%','1,0801 · 70,2%','MVRV'],
+    ['Frequência igualada em 12,8% dos dias','1,0914 · 77,4%','1,0179 · 65,5%','MVRV'],
+    ['Frequência igualada em 19,3% dos dias','1,0979 · 81,0%','1,0801 · 70,2%','MVRV'],
+    ['Capital igualado em 1,20×','1,0987 · 77,4%','1,0748 · 70,2%','MVRV'],
+    ['2021 → hoje, capital igualado','1,1317','1,1304','empate'],
+    ['Pior janela (capital igualado)','0,934','0,956','MM200W'],
+    ['Rank de permutação','0,892','0,940','MM200W'],
+    ['Escada completa na amostra justa','1,1458 a 1,21× de capital','1,0468 a 1,36×','MVRV']],
+   function(r){return r[3]==='MVRV'});
+  $('#ma-note').innerHTML='<b>Correção de método.</b> A primeira versão deste painel dizia que o Preço/MM200W era "indistinguível de moeda ao ar", com 36,8% de vitórias. '+
+    'Aquele teste era injusto: a MM200W exige 1.400 dias de preço e só existe desde 31/10/2015, mas as janelas começavam em 2013 — o indicador ficava inerte nos primeiros anos de cada janela, o que força eficiência 1,000. '+
+    'Na amostra justa ele sobe para 69,0% de vitórias em janelas de 4 anos. Tem sinal, e por isso é o segundo maior peso do índice composto.';
+
+  tbl('#ev-front',[['Perfil',function(r){return r.perfil},0],['Capital',function(r){return n(r.capital_x,3)+'×'},1],
+    ['BTC extra (mediana 4a)',function(r){return r.BTC_extra_pct},1],['Janelas vencedoras',function(r){return n(r.win,1)+'%'},1],
+    ['Pior janela',function(r){return n(r.pior_janela,3)},1],['Maior aporte',function(r){return r.maior_aporte_diario},1]],
+   E.frontier, function(r){return r.perfil.indexOf(cfg.prof)===0});
+
+  tbl('#ev-wf',[['Treino até',function(r){return r.treino_ate},0],['Teste',function(r){return r.teste},0],
+    ['Thresholds',function(r){return r.params},0],['OOS otimizado',function(r){return n(r.OOS_otimizado,4)},1],
+    ['OOS regra fixa',function(r){return n(r.OOS_regra_fixa,4)},1]],
+   E.walkforward, function(r){return r.OOS_otimizado<1});
+  var wins=E.walkforward.filter(function(r){return r.otim_menos_fixa>0}).length;
+  $('#wf-note').innerHTML='A otimização superou a regra fixa em <b>'+wins+' de '+E.walkforward.length+'</b> janelas. '+
+    'O achado que importa não é a média: é que o otimizador escolheu praticamente os mesmos thresholds em todas as janelas. Saltos erráticos seriam a assinatura de overfitting; não há nenhum.';
+
+  var subs=E.subsets.slice().sort(function(a,b){return b.eff_mediana-a.eff_mediana});
+  tbl('#ev-sub',[['Modelo',function(r){return r.modelo},0],['Indicadores',function(r){return r.n_ind},1],
+    ['Eficiência mediana',function(r){return n(r.eff_mediana,4)},1],['Janelas vencedoras',function(r){return n(r.pct_janelas_win,1)+'%'},1],
+    ['Rank',function(r){return n(r.rank_mediano,3)},1],['Capital',function(r){return n(r.capital_x,3)+'×'},1]],
+   subs, function(r){return r.modelo==='MVRV'});
+
+  var rec=E.recovery.filter(function(r){return [0,30,90,180].indexOf(r.dias_recovery)>=0&&[1,1.5,2,2.5].indexOf(r.mult_recovery)>=0});
+  tbl('#ev-rec',[['Dias mantidos',function(r){return r.dias_recovery===0?'sem recovery':r.dias_recovery+' dias'},0],
+    ['Multiplicador',function(r){return fmtM(r.mult_recovery)},1],['Eficiência mediana',function(r){return n(r.eff_mediana,4)},1],
+    ['Capital',function(r){return n(r.capital_x,3)+'×'},1],['Retorno por capital extra',function(r){return n(r.eff_por_capital,3)},1]],
+   rec, function(r){return r.dias_recovery===0});
+
+  tbl('#ev-fail',[['Hipótese testada',function(r){return r[0]},0],['Resultado',function(r){return r[1]},0]],
+   [['Escada H0 original de 6 estados','Funciona, mas perde para o MVRV sozinho a capital igual. Os degraus 2× e 4× nunca dispararam em 2021–2026'],
+    ['Acrescentar Mayer ao MVRV (sem restrição)','Piora: 1,2178 → 1,1572'],
+    ['Acrescentar RSI ao MVRV (sem restrição)','Piora: 1,2178 → 1,1832'],
+    ['Acrescentar Hash Ribbons','Piora todos os 31 subconjuntos, sem exceção'],
+    ['Modelo completo de 5 indicadores','1,1028 — 14º lugar entre 31'],
+    ['Preço/MM200W confirmando o MVRV','Piora o MVRV a capital idêntico: 1,0914 → 1,0796'],
+    ['Fase de recuperação, 25 variantes','Eficiência inalterada, capital até +24%'],
+    ['Função contínua (c/MVRV)^β','Comparável à escada, nunca superior a capital igual'],
+    ['Janela única de 14 anos como métrica','Rejeitada: 64,9% do "BTC por dólar" de 2013–2020 está só em 2013, quando o MVRV dizia "caro"']]);
+}
+
+/* ================= CONFIG ================= */
+function renderConfig(){
+  var rc=D.rolling.composto, rm=D.rolling.mvrv;
+  $('#src-explain').innerHTML = cfg.src==='composto'
+    ? '<b>Score composto em uso.</b> Agrega os quatro indicadores com pesos calibrados por grid restrito e validados em walk-forward. Mediana entre janelas de 4 anos: '+n(rc.median,4)+' com '+n(rc.win,1)+'% de acerto. A capital igualado em 1,31× rende 1,1399 contra 1,2178 da escada de MVRV — paga cerca de 8 pontos de eficiência pela leitura mais rica, com pior janela um pouco melhor.'
+    : '<b>Escada de MVRV em uso.</b> É a regra vencedora do critério do item 33: maior eficiência por unidade de capital e o rank de permutação mais alto (0,932). Mediana entre janelas: '+n(rm.median,4)+' com '+n(rm.win,1)+'% de acerto. O índice composto continua sendo exibido nas telas como leitura.';
+
+  var W=D.model.weights, tot=0; Object.keys(W).forEach(function(k){tot+=W[k]});
+  var wh='<thead><tr><th>Indicador</th><th class="num">Peso</th><th class="num">Participação</th><th>Papel</th></tr></thead><tbody>';
+  [['MVRV','Valuation on-chain. Sozinho já explica quase todo o ganho medido.'],
+   ['MM200W','Preço relativo à média de 200 semanas. Segundo maior peso.'],
+   ['RSI','Momentum semanal. Entra por exigência de composição, não por ganho medido.'],
+   ['Mayer','Preço sobre a média de 200 dias. Altamente correlacionado com o RSI (0,93).']].forEach(function(r){
+    wh+='<tr><td>'+r[0]+'</td><td class="num">'+W[r[0]]+'</td><td class="num">'+n(100*W[r[0]]/tot,0)+'%</td><td style="text-align:left;font-size:12.5px;color:var(--ink-2)">'+r[1]+'</td></tr>'});
+  $('#cfg-weights').innerHTML=wh+'</tbody>';
+
+  var c=cuts(), P=D.model.profiles[cfg.prof];
+  var rh='<thead><tr><th>Estado</th><th class="num">Score</th>'+(cfg.src==='mvrv'?'<th class="num">MVRV</th>':'')+
+         '<th class="num">Multiplicador</th><th class="num">Aporte</th></tr></thead><tbody>';
+  var mb=D.model.mvrv_bounds;
+  var bands=[['< '+n(c[0],0)],[n(c[0],0)+' – '+n(c[1],0)],[n(c[1],0)+' – '+n(c[2],0)],[n(c[2],0)+' – '+n(c[3],0)],['≥ '+n(c[3],0)]];
+  var mvb=['≥ 1,20','1,00 – 1,20','0,95 – 1,00','0,90 – 0,95','< 0,90'];
+  for(var i=0;i<5;i++){
+    var m=i===0?1:P[i-1];
+    rh+='<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var('+ZONE[i]+');margin-right:7px"></span>'+STATES[i]+'</td>'+
+        '<td class="num">'+bands[i][0]+'</td>'+(cfg.src==='mvrv'?'<td class="num">'+mvb[i]+'</td>':'')+
+        '<td class="num">'+fmtM(m)+'</td><td class="num">'+disp(cfg.base*m)+'</td></tr>'}
+  $('#cfg-rule').innerHTML=rh+'</tbody>';
+
+  $('#data-prov').innerHTML='Preço: Bitstamp BTC/USD, candles de 1 minuto agregados em OHLC4 diário, 2012-01-01 a '+dstr(D.today.date)+', sem lacunas. '+
+    'On-chain: Coin Metrics community. Realized Price recuperado por market cap ÷ MVRV ÷ supply. Painel gerado em '+D.generated+'.';
+}
+
+/* ================= export ================= */
+function claudeUse(name){
+  try{ if(window.claude&&typeof window.claude.use==='function') return window.claude.use(name).catch(function(){return null}) }catch(e){}
+  return Promise.resolve(null);
+}
+function setupExport(){
+  var row=$('#export-row');
+  claudeUse('downloads').then(function(dl){
+    if(!dl){row.innerHTML='<span class="footnote">Exportação de arquivo indisponível nesta visualização.</span>';return}
+    var b=document.createElement('button'); b.className='btn primary'; b.textContent='Baixar plano diário (CSV)';
+    b.onclick=function(){
+      var P=D.model.profiles[cfg.prof], c=cuts(), L=['fonte,estado,score_min,score_max,multiplicador,aporte_'+cfg.cur];
+      var lim=[[0,c[0]],[c[0],c[1]],[c[1],c[2]],[c[2],c[3]],[c[3],100]];
+      for(var i=0;i<5;i++){var m=i===0?1:P[i-1];
+        L.push([cfg.src,STATES[i],lim[i][0],lim[i][1],m,(cfg.base*m).toFixed(2)].join(','))}
+      L.push('');
+      L.push('sinal_de_hoje,'+D.today.date+',score='+n(D.today.scores[cfg.src],1)+',multiplicador='+multOf(D.today.scores[cfg.src])+
+             ',aporte='+(cfg.base*multOf(D.today.scores[cfg.src])).toFixed(2)+' '+cfg.cur);
+      Object.keys(D.today.indicators).forEach(function(k){var o=D.today.indicators[k];
+        if(o) L.push('indicador,'+k+',valor='+o.value+',percentil='+o.pct+(o.cheap!=null?',forca='+STRENGTH[strIdx(o.cheap)]:''))});
+      dl.save({filename:'btc-dynamic-dca-plano.csv',data:L.join('\n')}).catch(function(){});
+    };
+    row.appendChild(b);
+  });
+}
+
+/* ================= nav & wiring ================= */
+var PAGES=[['hoje','Hoje'],['historico','Histórico'],['backtest','Backtest'],['indicadores','Indicadores'],['evidencia','Evidência'],['config','Configurações']];
+var current='hoje';
+function go(id){
+  current=id;
+  PAGES.forEach(function(p){$('#p-'+p[0]).hidden=(p[0]!==id)});
+  $$('#nav button').forEach(function(b){b.setAttribute('aria-current',b.dataset.p===id?'true':'false')});
+  if(id==='historico')renderHist();
+  if(id==='backtest')renderBacktest();
+  if(id==='indicadores')renderIndicadores();
+  if(id==='evidencia')renderEvidencia();
+  if(id==='config')renderConfig();
+  window.scrollTo(0,0);
+}
+(function(){var nav=$('#nav');
+  PAGES.forEach(function(p,i){var b=document.createElement('button'); b.dataset.p=p[0];
+    b.innerHTML='<span class="idx">'+String(i+1).padStart(2,'0')+'</span>'+p[1];
+    b.onclick=function(){go(p[0])}; nav.appendChild(b)})})();
+
+function applyTheme(){
+  if(cfg.theme==='system') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme',cfg.theme);
+}
+function refreshAll(){
+  renderToday(); indDone=false;
+  if(current==='historico')renderHist();
+  if(current==='backtest')renderBacktest();
+  if(current==='indicadores')renderIndicadores();
+  if(current==='config')renderConfig();
+}
+function bind(){
+  var base=$('#cfg-base'),cur=$('#cfg-cur'),fx=$('#cfg-fx'),prof=$('#cfg-prof'),th=$('#cfg-theme'),src=$('#cfg-src');
+  base.value=cfg.base; cur.value=cfg.cur; fx.value=cfg.fx; prof.value=cfg.prof; th.value=cfg.theme; src.value=cfg.src;
+  $('#fx-field').hidden=cfg.cur!=='BRL';
+  base.oninput=function(){cfg.base=Math.max(1,+base.value||100); persist(); refreshAll()};
+  cur.onchange=function(){cfg.cur=cur.value; $('#fx-field').hidden=cfg.cur!=='BRL'; persist(); refreshAll()};
+  fx.oninput=function(){cfg.fx=Math.max(0.01,+fx.value||5.4); persist(); refreshAll()};
+  prof.onchange=function(){cfg.prof=prof.value; persist(); refreshAll()};
+  src.onchange=function(){cfg.src=src.value; persist(); refreshAll()};
+  th.onchange=function(){cfg.theme=th.value; applyTheme(); persist(); setTimeout(refreshAll,30)};
+  $$('#bt-period button').forEach(function(b){b.onclick=function(){
+    cfg.period=b.dataset.v;
+    $$('#bt-period button').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false')});
+    renderBacktest()}});
+}
+claudeUse('db').then(function(db){
+  if(!db) return; dbRef=db;
+  db.doc('settings/main').get().then(function(s){
+    if(s&&s.exists&&s.data){
+      var d=s.data,ch=false;
+      ['base','cur','fx','prof','theme','src'].forEach(function(k){ if(d[k]!=null&&d[k]!==cfg[k]){cfg[k]=d[k];ch=true} });
+      if(ch){applyTheme(); bind(); refreshAll()}
+      $('#cfg-status').textContent='Preferências sincronizadas — abrem iguais em qualquer dispositivo.';
+    } else $('#cfg-status').textContent='Preferências serão sincronizadas entre dispositivos.';
+  }).catch(function(){});
+});
+
+applyTheme();
+$('#stamp').textContent='Painel de '+dstr(D.today.date);
+$$('#bt-period button').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.v===cfg.period?'true':'false')});
+bind(); renderToday(); setupExport(); go('hoje');
+
+var rt;
+window.addEventListener('resize',function(){clearTimeout(rt); rt=setTimeout(function(){
+  if(current==='historico')renderHist();
+  if(current==='backtest')renderBacktest();
+  if(current==='indicadores'){indDone=false; renderIndicadores()}},180)});
+})();
+</script>
