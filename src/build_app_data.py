@@ -93,9 +93,46 @@ ev=dict(head_to_head=pd.read_csv('out/head_to_head.csv').to_dict('records'),
         subsets=pd.read_csv('out/subset_sweep.csv').round(4).to_dict('records'),
         comp_wf=pd.read_csv('out/composite_walkforward.csv').to_dict('records'))
 
+# ---------------- bloco LIVE: o que o navegador precisa para avancar o sinal sozinho
+QGRID = 1001
+def quantiles(series):
+    v = series.dropna().to_numpy(float)
+    if len(v) < 100: return None
+    return [jn(x) for x in np.quantile(v, np.linspace(0,1,QGRID))]
+
+# estado do RSI semanal de Wilder, para avancar uma semana sem reprocessar tudo
+wk = P['close'].resample('W-SUN').last()
+dwk = wk.diff(); gain = dwk.clip(lower=0); loss = -dwk.clip(upper=0)
+ag = gain.ewm(alpha=1/14, adjust=False, min_periods=14).mean()
+al = loss.ewm(alpha=1/14, adjust=False, min_periods=14).mean()
+
+TAIL = 1500   # suficiente para MM200D (200) e MM200W (1400)
+tail = P['close'].tail(TAIL)
+live = dict(
+  cm_url='https://raw.githubusercontent.com/akpasz/btc-data/main/data/coinmetrics.json',
+  bitstamp_url='https://www.bitstamp.net/api/v2/ohlc/btcusd/?step=86400&limit=10',
+  bitstamp_ticker='https://www.bitstamp.net/api/v2/ticker/btcusd/',
+  lag_price=1, lag_onchain=2,
+  last_price_date=str(P.index[-1].date()),
+  last_onchain_date=str((P.index[-1]-pd.Timedelta(days=2)).date()),
+  closes=[jn(v) for v in tail], close_dates=[str(x.date()) for x in tail.index],
+  rsi_state=dict(avg_gain=jn(ag.iloc[-1]), avg_loss=jn(al.iloc[-1]),
+                 last_close=jn(wk.iloc[-1]), last_date=str(wk.index[-1].date()),
+                 value=jn(S['rsi_weekly'].iloc[-1])),
+  mktcap_std=jn(P['market_cap'].expanding(min_periods=365).std().iloc[-1]),
+  quantiles={k: quantiles(P[c]) for k,c in
+             [('mvrv','mvrv'),('mayer','mayer'),('p_ma200w','p_ma200w'),
+              ('rsi_weekly','rsi_weekly'),('price_to_rp','price_to_rp'),
+              ('mvrv_zscore','mvrv_zscore'),('nupl','nupl')]},
+  ranges={k: dict(min=jn(P[c].min()), median=jn(P[c].median()), max=jn(P[c].max()))
+          for k,c in [('mvrv','mvrv'),('mayer','mayer'),('p_ma200w','p_ma200w'),
+                      ('rsi_weekly','rsi_weekly'),('price_to_rp','price_to_rp'),
+                      ('mvrv_zscore','mvrv_zscore'),('nupl','nupl')]},
+)
+
 payload=dict(generated=str(pd.Timestamp.now(tz='UTC'))[:19]+' UTC', today=today, backtest=bk,
-  series=series, hist=hist, rolling=roll, evidence=ev,
-  model=dict(cuts=dict(mvrv=fm.CUTS_MVRV, composto=fm.CUTS_COMP),
+  series=series, hist=hist, rolling=roll, evidence=ev, live=live,
+  model=dict(cuts=dict(mvrv=fm.CUTS_MVRV, composto=fm.CUTS_COMP), knots=fm.KNOTS,
              mvrv_bounds=fm.MVRV_BOUNDS, weights=fm.WEIGHTS,
              profiles=fm.PROFILE_MULTS, states=fm.STATES,
              strength=fm.STRENGTH, strength_cuts=fm.STRENGTH_CUTS))

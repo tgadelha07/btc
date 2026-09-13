@@ -151,6 +151,13 @@ select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid 
 .tip .r{display:flex; justify-content:space-between; gap:14px}
 .tip .r b{font-variant-numeric:tabular-nums; font-family:"IBM Plex Mono",monospace; font-weight:500}
 
+.livebar{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-3);
+  margin:-18px 0 26px; padding:7px 12px; background:var(--panel-2); border:1px solid var(--rule); border-radius:7px}
+.livebar .dot{width:7px; height:7px; border-radius:50%; background:var(--ink-3); flex:none}
+.livebar.ok .dot{background:var(--s3)}
+.livebar.stale .dot{background:var(--warn)}
+.livebar b{color:var(--ink); font-weight:600}
+.livebar .num{font-variant-numeric:tabular-nums}
 .note{font-size:12.5px; color:var(--ink-2); background:var(--panel-2); border:1px solid var(--rule);
   border-left:3px solid var(--accent); border-radius:0 7px 7px 0; padding:11px 14px; margin-top:12px}
 .note b{color:var(--ink)}
@@ -216,6 +223,8 @@ select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid 
           <div class="readout bigaporte"><div class="k">Aporte recomendado hoje</div><div class="v num" id="ro-aporte"></div><div class="s" id="ro-aportesub"></div></div>
         </div>
       </div>
+
+      <div id="livebar" class="livebar"><span class="dot"></span><span id="livetext">Carregando dados mais recentes…</span></div>
 
       <div id="divergence"></div>
 
@@ -638,6 +647,7 @@ function renderToday(){
 
   $('#ro-price').textContent=usd(t.price,0);
   $('#ro-pricesub').textContent='fechamento Bitstamp · '+dstr(t.date);
+  if(typeof LIVE!=='undefined'&&LIVE.spot) setTimeout(paintSpot,0);
   $('#ro-mult').textContent=fmtM(m);
   $('#ro-multsub').textContent=SRCNAME[cfg.src].toLowerCase()+' · perfil '+cfg.prof;
   $('#ro-aporte').textContent=disp(cfg.base*m);
@@ -1029,10 +1039,178 @@ claudeUse('db').then(function(db){
   }).catch(function(){});
 });
 
+/* ================= atualizacao ao abrir =================
+   O pacote data.js e gerado pelo job noturno. Ao abrir, a pagina tenta avancar
+   o sinal por conta propria: busca a serie on-chain da Coin Metrics (o GitHub
+   serve com access-control-allow-origin: *) e o OHLC diario da Bitstamp, e
+   recalcula HOJE respeitando exatamente a mesma convencao do backtest —
+   preco do dia anterior, on-chain de dois dias atras. Se qualquer fonte falhar,
+   nada quebra: a pagina segue mostrando o que veio no pacote.            */
+var L=D.live, LIVE={state:'loading', spot:null, advanced:false, err:null};
+
+function isoAdd(iso,days){var d=new Date(iso+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+days); return d.toISOString().slice(0,10)}
+function todayISO(){return new Date().toISOString().slice(0,10)}
+function pctFromQ(q,x){
+  if(!q||x==null||isNaN(x)) return null;
+  var hi=q.length-1;
+  if(x<=q[0]) return 0; if(x>=q[hi]) return 100;
+  var lo=0,h=hi;
+  while(lo<h-1){var m=(lo+h)>>1; if(q[m]<=x) lo=m; else h=m}
+  return 100*lo/hi;
+}
+function scoreFromMvrv(mv){
+  var K=D.model.knots;
+  if(mv>=K[0][0]) return 0;
+  if(mv<=K[K.length-1][0]) return 100;
+  for(var i=0;i<K.length-1;i++){
+    var a=K[i],b=K[i+1];
+    if(mv<=a[0]&&mv>=b[0]) return a[1]+(a[0]-mv)/(a[0]-b[0])*(b[1]-a[1]);
+  }
+  return 0;
+}
+function fetchJSON(url,ms){
+  var ctl=new AbortController(), t=setTimeout(function(){ctl.abort()},ms||9000);
+  return fetch(url,{signal:ctl.signal,cache:'default'})
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json() })
+    .then(function(j){ clearTimeout(t); return j });
+}
+function cmLookup(series,isoNative){
+  /* o espelho publica as datas deslocadas +1 dia; desfazemos aqui */
+  var want=isoAdd(isoNative,1), a=series||[];
+  for(var i=a.length-1;i>=0;i--){ if(a[i][0]===want) return a[i][1]; if(a[i][0]<want) return null }
+  return null;
+}
+function cmLatestOnOrBefore(series,isoNative){
+  var want=isoAdd(isoNative,1), a=series||[];
+  for(var i=a.length-1;i>=0;i--) if(a[i][0]<=want) return {date:isoAdd(a[i][0],-1), value:a[i][1]};
+  return null;
+}
+function setLive(cls,html){
+  var bar=$('#livebar'); if(!bar) return;
+  bar.className='livebar'+(cls?' '+cls:'');
+  $('#livetext').innerHTML=html;
+}
+
+function refreshLive(){
+  var T=todayISO(), wantPrice=isoAdd(T,-L.lag_price), wantChain=isoAdd(T,-L.lag_onchain);
+  var upToDate = (L.last_price_date>=wantPrice && L.last_onchain_date>=wantChain);
+
+  fetchJSON(L.bitstamp_ticker,7000).then(function(t){
+    var v=parseFloat(t&&t.last); if(isFinite(v)) LIVE.spot=v;
+  }).catch(function(){}).then(function(){
+
+    if(upToDate){
+      setLive('ok','Dados de <b>'+dstr(D.today.date)+'</b> — o pacote já está no dia.'+
+        (LIVE.spot?' Preço agora: <b class="num">'+usd(LIVE.spot,0)+'</b>.':''));
+      if(LIVE.spot) paintSpot();
+      return;
+    }
+
+    setLive('', 'Buscando dados mais recentes…');
+    return Promise.all([
+      fetchJSON(L.cm_url,15000),
+      fetchJSON(L.bitstamp_url,9000).catch(function(){return null})
+    ]).then(function(res){
+      var cm=res[0], ohlc=res[1];
+      var S1=cm&&cm.series; if(!S1) throw new Error('serie on-chain vazia');
+
+      var chain=cmLatestOnOrBefore(S1.CapMVRVCur,wantChain);
+      if(!chain) throw new Error('sem MVRV para '+wantChain);
+      var cd=chain.date, mvrv=chain.value;
+      var mktcap=cmLookup(S1.CapMrktCurUSD,cd), supply=cmLookup(S1.SplyCur,cd);
+      if(mvrv==null||mktcap==null||supply==null) throw new Error('linha on-chain incompleta');
+      var rcap=mktcap/mvrv, rprice=rcap/supply;
+
+      /* precos novos: Bitstamp (mesma fonte do backtest) e, na falta, Coin Metrics */
+      var dates=L.close_dates.slice(), closes=L.closes.slice(), src='Bitstamp';
+      function push(dt,c){ if(dt>dates[dates.length-1] && dt<=wantPrice){ dates.push(dt); closes.push(c) } }
+      if(ohlc&&ohlc.data&&ohlc.data.ohlc){
+        ohlc.data.ohlc.forEach(function(k){
+          push(new Date(parseInt(k.timestamp,10)*1000).toISOString().slice(0,10), parseFloat(k.close)) });
+      } else {
+        src='Coin Metrics';
+        var pr=S1.PriceUSD||[];
+        for(var i=Math.max(0,pr.length-20);i<pr.length;i++) push(isoAdd(pr[i][0],-1), pr[i][1]);
+      }
+      var price=closes[closes.length-1], priceDate=dates[dates.length-1];
+
+      var ma200=0; for(var a=closes.length-200;a<closes.length;a++) ma200+=closes[a];
+      ma200/=200;
+      var ma1400=null;
+      if(closes.length>=1400){ ma1400=0; for(var b=closes.length-1400;b<closes.length;b++) ma1400+=closes[b]; ma1400/=1400 }
+
+      /* RSI semanal: so avanca em semana FECHADA (domingo UTC) */
+      var rs=L.rsi_state, ag=rs.avg_gain, al=rs.avg_loss, lastC=rs.last_close, rsi=rs.value;
+      for(var i2=0;i2<dates.length;i2++){
+        if(dates[i2]<=rs.last_date) continue;
+        var dt=new Date(dates[i2]+'T00:00:00Z');
+        if(dt.getUTCDay()!==0) continue;          /* 0 = domingo */
+        var dlt=closes[i2]-lastC;
+        ag=ag+((dlt>0?dlt:0)-ag)/14; al=al+((dlt<0?-dlt:0)-al)/14;
+        rsi=al>0?100-100/(1+ag/al):100; lastC=closes[i2];
+      }
+
+      var vals={mvrv:mvrv, mayer:price/ma200, p_ma200w:ma1400?price/ma1400:null,
+                rsi_weekly:rsi, price_to_rp:price/rprice, nupl:1-1/mvrv,
+                mvrv_zscore:(mktcap-rcap)/L.mktcap_std, realized_price:rprice};
+      var T2=D.today;
+      Object.keys(vals).forEach(function(k){
+        if(vals[k]==null||!T2.indicators[k]) return;
+        var o=T2.indicators[k]; o.value=vals[k];
+        var q=L.quantiles[k];
+        if(q){ o.pct=pctFromQ(q,vals[k]); o.cheap=1-o.pct/100; o.strength=strIdx(o.cheap) }
+      });
+      T2.price=price; T2.date=priceDate; T2.data_date_onchain=cd;
+
+      var ch={MVRV:1-pctFromQ(L.quantiles.mvrv,vals.mvrv)/100,
+              MM200W:vals.p_ma200w==null?null:1-pctFromQ(L.quantiles.p_ma200w,vals.p_ma200w)/100,
+              RSI:1-pctFromQ(L.quantiles.rsi_weekly,vals.rsi_weekly)/100,
+              Mayer:1-pctFromQ(L.quantiles.mayer,vals.mayer)/100};
+      var W=D.model.weights, num=0, den=0;
+      Object.keys(W).forEach(function(k){ if(ch[k]!=null){ num+=W[k]*ch[k]; den+=W[k] } });
+      T2.scores.composto=den?100*num/den:T2.scores.composto;
+      T2.scores.mvrv=scoreFromMvrv(mvrv);
+      T2.states.composto=stateIdx(T2.scores.composto,'composto');
+      T2.states.mvrv=stateIdx(T2.scores.mvrv,'mvrv');
+
+      LIVE.advanced=true; LIVE.src=src;
+      renderToday();
+      var moveu = (priceDate>L.last_price_date) || (cd>L.last_onchain_date);
+      var completo = (priceDate>=wantPrice && cd>=wantChain);
+      var msg;
+      if(!moveu){
+        msg='Fontes consultadas agora: nada novo desde <b>'+dstr(L.last_price_date)+'</b>.';
+      } else if(completo){
+        msg='Atualizado agora — sinal de <b>'+dstr(priceDate)+'</b>, on-chain de '+dstr(cd)+' ('+src+').';
+      } else {
+        msg='Atualizado até onde as fontes chegaram: sinal de <b>'+dstr(priceDate)+
+            '</b>, on-chain de '+dstr(cd)+'. As séries diárias ainda não publicaram '+dstr(wantPrice)+'.';
+      }
+      setLive(completo?'ok':'stale', msg+(LIVE.spot?' Preço agora: <b class="num">'+usd(LIVE.spot,0)+'</b>.':''));
+    });
+  }).catch(function(e){
+    LIVE.err=e&&e.message;
+    setLive('stale','Não consegui alcançar as fontes agora — mostrando o pacote de <b>'+dstr(D.today.date)+
+      '</b>. Os backtests e o histórico não dependem disso.');
+  });
+}
+function paintSpot(){
+  if(!LIVE.spot) return;
+  var sub=$('#ro-pricesub'); if(!sub) return;
+  var diff=100*(LIVE.spot/D.today.price-1);
+  $('#ro-price').textContent=usd(LIVE.spot,0);
+  sub.innerHTML='preço agora · fechamento de '+dstr(D.today.date)+' foi '+usd(D.today.price,0)+
+    ' <span style="color:var(--ink-3)">('+pct(diff,1)+')</span>';
+}
+
 applyTheme();
 $('#stamp').textContent='Painel de '+dstr(D.today.date);
 $$('#bt-period button').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.v===cfg.period?'true':'false')});
 bind(); renderToday(); setupExport(); go('hoje');
+refreshLive();
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible') refreshLive();
+});
 
 var rt;
 window.addEventListener('resize',function(){clearTimeout(rt); rt=setTimeout(function(){

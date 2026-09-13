@@ -39,3 +39,20 @@ Metodologia, validacao fora da amostra e o registro do que nao funcionou estao
 em `research/research_report.md`.
 
 Nada aqui e recomendacao de investimento.
+
+## Atualizacao ao abrir
+
+Alem do job noturno, a pagina tenta se atualizar sozinha toda vez que e aberta
+(e quando a aba volta ao primeiro plano). Ela busca:
+
+* a serie on-chain da Coin Metrics no GitHub — servida com `access-control-allow-origin: *`;
+* o OHLC diario e o preco spot da Bitstamp.
+
+Com isso recalcula o sinal de hoje seguindo exatamente a convencao do backtest:
+preco do dia anterior, on-chain de dois dias atras. Backtests, historico e
+quantis continuam vindo do pacote gerado a noite — eles nao mudam de um dia para
+o outro e recalcula-los no navegador seria desperdicio.
+
+Se qualquer fonte falhar, nada quebra: a pagina mostra o pacote noturno e diz a
+data dele. Na versao publicada como Artifact no Claude a busca externa e
+bloqueada por politica de conteudo, entao la o painel sempre exibe o pacote.

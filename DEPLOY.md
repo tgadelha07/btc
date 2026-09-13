@@ -69,6 +69,12 @@ um agendador separado para atualizar os dados.
 minuto. Em repositorio publico o Actions e ilimitado; em privado, o plano
 gratuito da 2.000 minutos por mes — isso aqui usa uns 30.
 
+**Se a pagina ja se atualiza sozinha ao abrir, para que o job noturno?** Porque o
+que ela recalcula ao abrir e so o sinal de hoje. Os backtests, o historico
+semanal, os quantis de cada indicador e as tabelas de evidencia sao pesados e
+mudam pouco — sao gerados a noite e viajam prontos no `data.js`. O job noturno
+tambem e o que mantem a pagina util quando as fontes externas estao fora do ar.
+
 **O painel some se o workflow falhar?** Nao. O site continua no ar com os
 ultimos dados que deram certo; so para de envelhecer... digo, so para de
 rejuvenescer. A aba Actions mostra a falha.
