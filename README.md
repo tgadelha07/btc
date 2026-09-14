@@ -40,6 +40,19 @@ em `research/research_report.md`.
 
 Nada aqui e recomendacao de investimento.
 
+## Forca de compra das barras
+
+As faixas ("fraca / moderada / forte / muito forte") nao sao percentil bruto:
+sao calibradas pelo LIFT medido de cada decil de cada indicador — quanto BTC por
+dolar aquele dia realmente comprava contra a media da janela, mediana entre
+janelas moveis de 4 anos. O criterio e o mesmo para todos: forte exige lift
+>= 1,15 e muito forte >= 1,45. Regenerar:
+
+```bash
+python src/calibrate_strength.py     # escreve out/strength_bands.json
+python src/build_app_data.py
+```
+
 ## Atualizacao ao abrir
 
 Alem do job noturno, a pagina tenta se atualizar sozinha toda vez que e aberta

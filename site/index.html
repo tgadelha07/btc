@@ -244,7 +244,7 @@ select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid 
       <div id="divergence"></div>
 
       <div class="block">
-        <header><h2>Indicadores</h2><p>Cada barra mostra a força de compra: quão barato o indicador está hoje em relação a toda a sua própria história anterior. Percentil calculado só contra o passado, nunca contra o futuro.</p></header>
+        <header><h2>Indicadores</h2><p>A barra mostra a força de compra medida, não o percentil bruto. As faixas de cada indicador foram calibradas pelo <i>lift</i>: quanto BTC por dólar aquele dia realmente comprava, contra a média da janela. "Forte" exige lift ≥ 1,15 e "muito forte" ≥ 1,45 — o mesmo critério para todos, o que faz só a família do MVRV alcançar o topo.</p></header>
         <div class="indgrid" id="ind-grid"></div>
       </div>
 
@@ -373,6 +373,12 @@ select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid 
       </div>
 
       <div class="block">
+        <header><h2>Calibração das barras de força</h2><p>Lift mediano de cada decil de percentil, entre janelas móveis de 4 anos desde 2013. Decil 1 são os 10% de dias mais baratos do indicador. É esta tabela que define onde cada rótulo começa — e ela mostra por que Mayer, RSI e MM200W nunca chegam a "muito forte".</p></header>
+        <div class="panel pad scroll"><table id="ev-str"></table></div>
+        <div class="note warnnote" id="str-note"></div>
+      </div>
+
+      <div class="block">
         <header><h2>O que não funcionou</h2></header>
         <div class="panel pad scroll"><table id="ev-fail"></table></div>
       </div>
@@ -465,7 +471,7 @@ var FCOL=['--f0','--f1','--f2','--f3'];
 var STATES=['NORMAL','ATRATIVO','MUITO ATRATIVO','CAPITULAÇÃO','EXTREMO HISTÓRICO'];
 var STATES_LC=['normal','atrativo','muito atrativo','capitulação','extremo histórico'];
 var STRENGTH=['fraca','moderada','forte','muito forte'];
-var SCUTS=D.model.strength_cuts;
+var SBANDS=D.model.strength_bands;
 var SRCNAME={composto:'Score composto',mvrv:'Escada de MVRV'};
 
 var cfg={base:100,cur:'USD',fx:5.40,prof:'agressivo',theme:'system',period:'2021',src:'composto'};
@@ -492,7 +498,31 @@ function stateIdx(score,src){var c=cuts(src),i=0; for(var j=0;j<c.length;j++) if
 function multOf(score,src,prof){var i=stateIdx(score,src); return i===0?1:D.model.profiles[prof||cfg.prof][i-1]}
 function dstr(s){var p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
 function dshort(s){var p=s.split('-');return p[1]+'/'+p[0].slice(2)}
-function strIdx(ch){var k=0; for(var i=0;i<SCUTS.length;i++) if(ch>=SCUTS[i]) k++; return k}
+/* forca de compra: faixas calibradas por indicador (lift medido, nao percentil bruto) */
+function strIdx(pctv,key){
+  var b=SBANDS[key];
+  if(!b||pctv==null||isNaN(pctv)) return 0;
+  if(b.p_muito_forte&&pctv<=b.p_muito_forte) return 3;
+  if(b.p_forte&&pctv<=b.p_forte) return 2;
+  if(b.p_moderada&&pctv<=b.p_moderada) return 1;
+  return 0;
+}
+function decileLift(key,pctv){
+  var b=SBANDS[key]; if(!b||pctv==null) return null;
+  var i=Math.min(9,Math.max(0,Math.floor(pctv/10)));
+  var v=b.deciles[i]; if(v==null) return null;
+  /* o rotulo pode ter sido travado pela regra de monotonicidade: um decil solto
+     acima de 1 depois que um decil mais barato ja havia caido abaixo de 1 e
+     tratado como ruido, e o leitor precisa enxergar isso. */
+  var bruto=v>=1.45?3:v>=1.15?2:v>=1.0?1:0;
+  return {v:v, ruido: bruto>(b.labels?b.labels[i]:bruto)};
+}
+function liftTxt(key,pctv){
+  var r=decileLift(key,pctv); if(!r) return '';
+  return ' · lift '+n(r.v,2)+(r.ruido
+    ? '<abbr title="Decil isolado acima de 1, mas este indicador já havia caído abaixo de 1 num decil mais barato. Tratado como ruído pela regra de monotonicidade." style="text-decoration:none;cursor:help">*</abbr>'
+    : '');
+}
 
 /* ================= charts ================= */
 function cssvar(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
@@ -681,11 +711,12 @@ function renderToday(){
   var g=$('#ind-grid'); g.innerHTML='';
   INDS.forEach(function(d){
     var o=t.indicators[d.k]; if(!o) return;
-    var ch=o.cheap==null?null:o.cheap, k=ch==null?null:strIdx(ch);
-    var inIdx=d.w!=null;
+    var ch=o.cheap==null?null:o.cheap, k=ch==null?null:strIdx(o.pct,d.k);
+    var inIdx=d.w!=null, bd=SBANDS[d.k]||{};
     var card=document.createElement('div'); card.className='indcard'+(inIdx?'':' off');
     var ticks='';
-    SCUTS.forEach(function(c){ ticks+='<div class="tick" style="left:'+(c*100)+'%"></div>'; });
+    [bd.p_moderada,bd.p_forte,bd.p_muito_forte].forEach(function(pv){
+      if(pv) ticks+='<div class="tick" style="left:'+(100-pv)+'%"></div>'; });
     card.innerHTML=
       '<div class="indhead"><span class="nm">'+d.nm+'</span>'+
         (inIdx?'<span class="pesotag">peso '+D.model.weights[d.w]+'</span>'
@@ -694,7 +725,7 @@ function renderToday(){
       (ch==null?'<div class="sfoot"><span class="sctx">sem histórico suficiente</span></div>':
        '<div class="sbar"><div class="fill" style="width:'+(ch*100).toFixed(1)+'%;background:var('+FCOL[k]+')"></div>'+ticks+'</div>'+
        '<div class="sfoot"><span class="slabel" style="color:var('+FCOL[k]+')">compra '+STRENGTH[k]+'</span>'+
-       '<span class="sctx">percentil '+n(o.pct,0)+'</span></div>')+
+       '<span class="sctx">percentil '+n(o.pct,0)+liftTxt(d.k,o.pct)+'</span></div>')+
       '<div class="indnote">'+(d.note||(d.sub+' · mín '+n(o.min,d.dec)+' · mediana '+n(o.median,d.dec)+' · máx '+n(o.max,d.dec)))+'</div>';
     g.appendChild(card);
   });
@@ -926,6 +957,23 @@ function renderEvidencia(){
     ['Capital',function(r){return n(r.capital_x,3)+'×'},1],['Retorno por capital extra',function(r){return n(r.eff_por_capital,3)},1]],
    rec, function(r){return r.dias_recovery===0});
 
+  var SNAMES={mvrv:'MVRV',p_ma200w:'Preço/MM200W',rsi_weekly:'RSI semanal',mayer:'Mayer',
+              price_to_rp:'Preço/Realized',mvrv_zscore:'MVRV Z-Score'};
+  var scols=[['Indicador',function(r){return SNAMES[r]},0]];
+  for(var dd=0;dd<10;dd++){(function(i){
+    scols.push([(i*10)+'–'+((i+1)*10),function(r){
+      var v=SBANDS[r]&&SBANDS[r].deciles[i];
+      if(v==null) return '—';
+      var lv=SBANDS[r].labels?SBANDS[r].labels[i]:0, bruto=v>=1.45?3:v>=1.15?2:v>=1.0?1:0;
+      return '<span style="color:var('+FCOL[lv]+');font-weight:'+(lv>1?600:400)+'">'+n(v,2)+
+             (bruto>lv?'<abbr title="tratado como ruído pela regra de monotonicidade" style="text-decoration:none;cursor:help">*</abbr>':'')+'</span>';
+    },1])})(dd)}
+  tbl('#ev-str',scols,Object.keys(SNAMES).filter(function(k){return SBANDS[k]}));
+  $('#str-note').innerHTML='<b>Correção aplicada.</b> A primeira versão rotulava a barra pelo percentil bruto, com "forte" começando no percentil 40. '+
+    'Isso fazia 40% de todos os dias da história receberem "forte" ou "muito forte" e — pior — acendia "compra forte" no MVRV bem antes do ponto em que o modelo validado age, '+
+    'que é MVRV abaixo de 1,20, o percentil 18,2. A barra dizia uma coisa e o multiplicador dizia outra. '+
+    'Agora as faixas vêm do lift medido acima, com o mesmo critério para todos os indicadores, e a barra concorda com o multiplicador.';
+
   tbl('#ev-fail',[['Hipótese testada',function(r){return r[0]},0],['Resultado',function(r){return r[1]},0]],
    [['Escada H0 original de 6 estados','Funciona, mas perde para o MVRV sozinho a capital igual. Os degraus 2× e 4× nunca dispararam em 2021–2026'],
     ['Acrescentar Mayer ao MVRV (sem restrição)','Piora: 1,2178 → 1,1572'],
@@ -990,7 +1038,7 @@ function setupExport(){
       L.push('sinal_de_hoje,'+D.today.date+',score='+n(D.today.scores[cfg.src],1)+',multiplicador='+multOf(D.today.scores[cfg.src])+
              ',aporte='+(cfg.base*multOf(D.today.scores[cfg.src])).toFixed(2)+' '+cfg.cur);
       Object.keys(D.today.indicators).forEach(function(k){var o=D.today.indicators[k];
-        if(o) L.push('indicador,'+k+',valor='+o.value+',percentil='+o.pct+(o.cheap!=null?',forca='+STRENGTH[strIdx(o.cheap)]:''))});
+        if(o) L.push('indicador,'+k+',valor='+o.value+',percentil='+o.pct+(o.cheap!=null?',forca='+STRENGTH[strIdx(o.pct,k)]:''))});
       dl.save({filename:'btc-dynamic-dca-plano.csv',data:L.join('\n')}).catch(function(){});
     };
     row.appendChild(b);
@@ -1173,7 +1221,7 @@ function refreshLive(){
         if(vals[k]==null||!T2.indicators[k]) return;
         var o=T2.indicators[k]; o.value=vals[k];
         var q=L.quantiles[k];
-        if(q){ o.pct=pctFromQ(q,vals[k]); o.cheap=1-o.pct/100; o.strength=strIdx(o.cheap) }
+        if(q){ o.pct=pctFromQ(q,vals[k]); o.cheap=1-o.pct/100; o.strength=strIdx(o.pct,k) }
       });
       T2.price=price; T2.date=priceDate; T2.data_date_onchain=cd;
 

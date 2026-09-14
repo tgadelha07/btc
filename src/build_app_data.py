@@ -11,7 +11,7 @@ def jn(x):
     return None if (np.isnan(x) or np.isinf(x)) else round(x,6)
 
 last = P.index[-1]
-def ctx(col, val, cheap_col=None):
+def ctx(col, val, cheap_col=None, key=None):
     s = P[col].dropna()
     if val is None or val!=val: return None
     d = dict(value=jn(val), pct=round(100*float((s<val).mean()),1),
@@ -19,7 +19,8 @@ def ctx(col, val, cheap_col=None):
     if cheap_col is not None:
         ch = S[cheap_col].iloc[-1]
         if ch==ch:
-            d['cheap']=round(1-float(ch),4); d['strength']=fm.strength_index(1-float(ch))
+            d['cheap']=round(1-float(ch),4)
+            d['strength']=fm.strength_index(100*float(ch), key)
     return d
 
 sg = S.loc[last]
@@ -29,13 +30,13 @@ today = dict(
   scores={k: jn(v.iloc[-1]) for k,v in SCORES.items()},
   states={k: int(fm.state_index(v,k).iloc[-1]) for k,v in SCORES.items()},
   indicators=dict(
-    mvrv=ctx('mvrv', sg['mvrv'], 'pct_mvrv'),
-    p_ma200w=ctx('p_ma200w', sg['p_ma200w'], 'pct_p_ma200w'),
-    rsi_weekly=ctx('rsi_weekly', sg['rsi_weekly'], 'pct_rsi_weekly'),
-    mayer=ctx('mayer', sg['mayer'], 'pct_mayer'),
-    price_to_rp=ctx('price_to_rp', sg['price_to_rp'], 'pct_price_to_rp'),
-    mvrv_zscore=ctx('mvrv_zscore', sg['mvrv_zscore'], 'pct_mvrv_zscore'),
-    nupl=ctx('nupl', sg['nupl'], 'pct_mvrv'),
+    mvrv=ctx('mvrv', sg['mvrv'], 'pct_mvrv', 'mvrv'),
+    p_ma200w=ctx('p_ma200w', sg['p_ma200w'], 'pct_p_ma200w', 'p_ma200w'),
+    rsi_weekly=ctx('rsi_weekly', sg['rsi_weekly'], 'pct_rsi_weekly', 'rsi_weekly'),
+    mayer=ctx('mayer', sg['mayer'], 'pct_mayer', 'mayer'),
+    price_to_rp=ctx('price_to_rp', sg['price_to_rp'], 'pct_price_to_rp', 'price_to_rp'),
+    mvrv_zscore=ctx('mvrv_zscore', sg['mvrv_zscore'], 'pct_mvrv_zscore', 'mvrv_zscore'),
+    nupl=ctx('nupl', sg['nupl'], 'pct_mvrv', 'nupl'),
     realized_price=ctx('realized_price', S['realized_price'].loc[last]),
     ma200d=ctx('ma200d', sg['ma200d']), ma200w=ctx('ma200w', sg['ma200w']),
   ),
@@ -135,7 +136,7 @@ payload=dict(generated=str(pd.Timestamp.now(tz='UTC'))[:19]+' UTC', today=today,
   model=dict(cuts=dict(mvrv=fm.CUTS_MVRV, composto=fm.CUTS_COMP), knots=fm.KNOTS,
              mvrv_bounds=fm.MVRV_BOUNDS, weights=fm.WEIGHTS,
              profiles=fm.PROFILE_MULTS, states=fm.STATES,
-             strength=fm.STRENGTH, strength_cuts=fm.STRENGTH_CUTS))
+             strength=fm.STRENGTH, strength_bands=fm.STRENGTH_BANDS))
 os.makedirs('app',exist_ok=True)
 open('out/app_data.json','w').write(json.dumps(payload,separators=(',',':')))
 open('app/data.js','w').write('window.__BTCDCA='+json.dumps(payload,separators=(',',':'))+';')

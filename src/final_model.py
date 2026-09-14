@@ -56,11 +56,21 @@ def state_index(score, source='mvrv'):
     for j,c in enumerate(cuts): i[(score>=c).fillna(False)] = j+1
     return i
 
-# ---- forca de compra por indicador (a partir da barateza point-in-time)
-STRENGTH_CUTS = [0.35, 0.60, 0.80]
+# ---- forca de compra: faixas calibradas pelo lift medido (src/calibrate_strength.py)
 STRENGTH = ['fraca','moderada','forte','muito forte']
-def strength_index(cheapness):
-    k = 0
-    for c in STRENGTH_CUTS:
-        if cheapness >= c: k += 1
-    return k
+import json as _json, os as _os
+_BANDS_PATH = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
+                            'out','strength_bands.json')
+try:
+    STRENGTH_BANDS = _json.load(open(_BANDS_PATH))
+except Exception:
+    STRENGTH_BANDS = {}
+
+def strength_index(pct, key):
+    """pct = percentil historico 0-100 (menor = mais barato)."""
+    b = STRENGTH_BANDS.get(key)
+    if not b or pct is None or pct != pct: return 0
+    if b['p_muito_forte'] and pct <= b['p_muito_forte']: return 3
+    if b['p_forte']       and pct <= b['p_forte']:       return 2
+    if b['p_moderada']    and pct <= b['p_moderada']:    return 1
+    return 0
